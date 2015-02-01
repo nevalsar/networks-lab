@@ -8,6 +8,7 @@
 #!/bin/env python
 rawData = open("rawData.tr")
 data = []
+packetSize = 6408
 
 print "\nStatistics : \n"
 
@@ -68,6 +69,20 @@ for key in groupedData:
 			delays.append(float(element['r'][0]) - float(element['+'][0]))
 print "Total end-to-end delay \t: " + str(sum(delays))
 
+# transmitted packets
+transmittedPackets = [groupedData[key] for key in groupedData if groupedData[key]['+'] is not None]
+print "No. of transmitted packets \t: " + str(len(transmittedPackets))
+
+# transmitted bytes
+print "No. of transmitted bytes \t: " + str(packetSize * len(transmittedPackets))
+
+# received packets
+receivedPackets = [groupedData[key] for key in groupedData if groupedData[key]['+'] is not None]
+print "No. of received packets \t: " + str(len(receivedPackets))
+
+# received bytes
+print "No. of received bytes \t\t: " + str(packetSize * len(receivedPackets))
+
 # number of assumed lost packets
 assumedLostPackets = []
 for key in groupedData:
@@ -93,12 +108,14 @@ print "Total number of transmitted packets \t: " + str(len(transmittedPackets))
 receivedPackets = [groupedData[key] for key in groupedData if groupedData[key]['r'] is not None]
 print "Total number of received packets \t: " + str(len(receivedPackets))
 
-# lost packets
+# dropped packets
 lostPackets = [groupedData[key] for key in groupedData if groupedData[key]['d'] is not None]
-
 for key in groupedData:
 	element = groupedData[key]
 	if element['+'] is not None:
 		if element['r'] is None:
 			lostPackets.append(element)
-print "No. of lost packets \t: " + str(len(lostPackets))
+print "No. of dropped packets \t: " + str(len(lostPackets))
+
+# dropped bytes
+print "No. of dropped bytes \t: " + str(packetSize * len(lostPackets))
