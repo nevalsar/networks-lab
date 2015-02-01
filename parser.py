@@ -44,24 +44,23 @@ for i in range(1, len(data) + 1) :
 # Sum of all end-to-end delays
 tempData = [element for element in data if not ('r' in element[0] and int(element[2]) == 0)]
 keys = [element[3] for element in tempData]
+packet_keys = ['+', 'r', '-']
 groupedData = dict.fromkeys(keys)
-for i in range(len(tempData)):
-	if groupedData[tempData[i][3]] is None:
-		groupedData[tempData[i][3]] = []
-		groupedData[tempData[i][3]].append(tempData[i][:-1])
-	else:
-		groupedData[tempData[i][3]].append(tempData[i][:-1])
+for element in tempData:
+	key = element[3]
+	if groupedData[key] is None:
+		groupedData[key] = dict.fromkeys(packet_keys)
+	if '+' in element[0]:
+		groupedData[key]['+'] = element[1:-1]
+	elif 'r' in element[0]:
+		groupedData[key]['r'] = element[1:-1]
+	elif '-' in element[0]:
+		groupedData[key]['-'] = element[1:-1]
 
 delays = []
+
 for key in groupedData:
 	element = groupedData[key]
-	sentPacket = None
-	receivedPacket = None
-	for packet in element:
-		if '+' in packet[0]:
-			sentPacket = float(packet[1])
-		elif 'r' in packet[0]:
-			receivedPacket = float(packet[1])
-	if sentPacket is not None and receivedPacket is not None:
-			delays.append(receivedPacket - sentPacket)
+	if element['+'] is not None and element['r'] is not None:
+			delays.append(float(element['r'][0]) - float(element['+'][0]))
 print "Total end-to-end delay \t: " + str(sum(delays))
