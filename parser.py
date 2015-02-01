@@ -44,7 +44,7 @@ for i in range(1, len(data) + 1) :
 # Sum of all end-to-end delays
 tempData = [element for element in data if not (('r' in element[0] and int(element[2]) == 0) or (('+' in element[0] or '-' in element[0]) and int(element[2]) == 1))]
 keys = [element[3] for element in tempData]
-packet_keys = ['+', 'r', '-']
+packet_keys = ['+', 'r', '-', 'd']
 groupedData = dict.fromkeys(keys)
 for element in tempData:
 	key = element[3]
@@ -57,6 +57,8 @@ for element in tempData:
 		groupedData[key]['r'] = element[1:-1]
 	elif '-' in element[0]:
 		groupedData[key]['-'].append(element[1:-1])
+	elif 'd' in element[0]:
+		groupedData[key]['d'] = element[1:-1]
 
 delays = []
 
@@ -66,14 +68,14 @@ for key in groupedData:
 			delays.append(float(element['r'][0]) - float(element['+'][0]))
 print "Total end-to-end delay \t: " + str(sum(delays))
 
-# number of lost packages
-lostPackets = []
+# number of assumed lost packets
+assumedLostPackets = []
 for key in groupedData:
 	element = groupedData[key]
 	if element['+'] is not None:
 		if element['r'] is None or (float(element['r'][0]) - float(element['+'][0])) > 10:
-			lostPackets.append(element)
-print "No. of lost packets \t: " + str(len(lostPackets))
+			assumedLostPackets.append(element)
+print "No. of assumed lost packets \t: " + str(len(assumedLostPackets))
 
 # number of packets with multiple dequeue attempts
 multiDequeue = []
@@ -82,3 +84,21 @@ for key in groupedData:
 	if len(element['-']) > 1:
 		multiDequeue.append((key, element))
 print "No. of packets with multiple dequeue attempts : " + str(len(multiDequeue))
+
+# total number of transmitted packets
+transmittedPackets = [groupedData[key] for key in groupedData if groupedData[key]['+'] is not None]
+print "Total number of transmitted packets \t: " + str(len(transmittedPackets))
+
+# total number of received packets
+receivedPackets = [groupedData[key] for key in groupedData if groupedData[key]['r'] is not None]
+print "Total number of received packets \t: " + str(len(receivedPackets))
+
+# lost packets
+lostPackets = [groupedData[key] for key in groupedData if groupedData[key]['d'] is not None]
+
+for key in groupedData:
+	element = groupedData[key]
+	if element['+'] is not None:
+		if element['r'] is None:
+			lostPackets.append(element)
+print "No. of lost packets \t: " + str(len(lostPackets))
