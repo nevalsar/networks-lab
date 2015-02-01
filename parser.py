@@ -42,7 +42,7 @@ for i in range(1, len(data) + 1) :
 		break
 
 # Sum of all end-to-end delays
-tempData = [element for element in data if not ('r' in element[0] and int(element[2]) == 0)]
+tempData = [element for element in data if not (('r' in element[0] and int(element[2]) == 0) or (('+' in element[0] or '-' in element[0]) and int(element[2]) == 1))]
 keys = [element[3] for element in tempData]
 packet_keys = ['+', 'r', '-']
 groupedData = dict.fromkeys(keys)
@@ -74,3 +74,11 @@ for key in groupedData:
 		if element['r'] is None or (float(element['r'][0]) - float(element['+'][0])) > 10:
 			lostPackets.append(element)
 print "No. of lost packets \t: " + str(len(lostPackets))
+
+# number of packets with multiple dequeue attempts
+multiDequeue = []
+for key in groupedData:
+	element = groupedData[key]
+	if len(element['-']) > 1:
+		multiDequeue.append((key, element))
+print "No. of packets with multiple dequeue attempts : " + str(len(multiDequeue))
