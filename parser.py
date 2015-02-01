@@ -50,12 +50,13 @@ for element in tempData:
 	key = element[3]
 	if groupedData[key] is None:
 		groupedData[key] = dict.fromkeys(packet_keys)
+		groupedData[key]['-'] = []
 	if '+' in element[0]:
 		groupedData[key]['+'] = element[1:-1]
 	elif 'r' in element[0]:
 		groupedData[key]['r'] = element[1:-1]
 	elif '-' in element[0]:
-		groupedData[key]['-'] = element[1:-1]
+		groupedData[key]['-'].append(element[1:-1])
 
 delays = []
 
@@ -64,3 +65,12 @@ for key in groupedData:
 	if element['+'] is not None and element['r'] is not None:
 			delays.append(float(element['r'][0]) - float(element['+'][0]))
 print "Total end-to-end delay \t: " + str(sum(delays))
+
+# number of lost packages
+lostPackets = []
+for key in groupedData:
+	element = groupedData[key]
+	if element['+'] is not None:
+		if element['r'] is None or (float(element['r'][0]) - float(element['+'][0])) > 10:
+			lostPackets.append(element)
+print "No. of lost packets \t: " + str(len(lostPackets))
