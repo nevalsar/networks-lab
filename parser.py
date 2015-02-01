@@ -6,9 +6,19 @@
 ###################################################
 
 #!/bin/env python
-rawData = open("rawData.tr")
+import sys
+
+print sys.argv
+if len(sys.argv) < 2:
+	print "Parameters : data file and packetsize(defaults to 128 bytes)"
+	exit
+elif len(sys.argv) == 2:
+	packetSize = 128
+else:
+	packetSize = int(sys.argv[2])
+
+rawData = open(sys.argv[1])
 data = []
-packetSize = 6408
 
 print "\nStatistics : \n"
 
