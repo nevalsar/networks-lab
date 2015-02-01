@@ -22,24 +22,28 @@ data[:] = [[element[0], element[1], element[2][10:11], element[18]] for element 
 for i in range(len(data)):
 	if '-' in data[i][0] and '0' in data[i][2]:
 		print "First transmitted \t: " + data[i][1]
+		firstTransmission = float(data[i][1])
 		break
 
 # Last tranmission
 for i in range(1, len(data) + 1) :
 	if '-' in data[-i][0] and '0' in data[-i][2]:
 		print "Last transmitted \t: " + data[-i][1]
+		lastTransmission = float(data[-i][1])
 		break
 
 # First received
 for i in range(len(data)):
 	if 'r' in data[i][0] and '1' in data[i][2]:
 		print "First received \t\t: " + data[i][1]
+		firstReceived = float(data[i][1])
 		break
 
 # Last received
 for i in range(1, len(data) + 1) :
 	if 'r' in data[-i][0] and '1' in data[-i][2]:
 		print "Last received \t\t: " + data[-i][1]
+		lastReceived = float(data[-i][1])
 		break
 
 # Sum of all end-to-end delays
@@ -100,14 +104,6 @@ for key in groupedData:
 		multiDequeue.append((key, element))
 print "No. of packets with multiple dequeue attempts : " + str(len(multiDequeue))
 
-# total number of transmitted packets
-transmittedPackets = [groupedData[key] for key in groupedData if groupedData[key]['+'] is not None]
-print "Total number of transmitted packets \t: " + str(len(transmittedPackets))
-
-# total number of received packets
-receivedPackets = [groupedData[key] for key in groupedData if groupedData[key]['r'] is not None]
-print "Total number of received packets \t: " + str(len(receivedPackets))
-
 # dropped packets
 lostPackets = [groupedData[key] for key in groupedData if groupedData[key]['d'] is not None]
 for key in groupedData:
@@ -119,3 +115,8 @@ print "No. of dropped packets \t: " + str(len(lostPackets))
 
 # dropped bytes
 print "No. of dropped bytes \t: " + str(packetSize * len(lostPackets))
+
+# transmission throughput
+print "Transmitter throughput \t: " + str(packetSize * len(transmittedPackets) / (lastTransmission - firstTransmission))
+# receiver throughput
+print "Receiver throughput \t: " + str(packetSize * len(receivedPackets) / (lastReceived - firstReceived))
