@@ -5,7 +5,7 @@
 # 				: PRANJAL PANDEY (12CS30026)
 ###################################################
 
-#!/bin/env python
+#!/usr/bin/env python
 import sys
 from operator import itemgetter
 import math
@@ -52,33 +52,38 @@ def getCSMAParams(rawData, packetSize):
 	totalTime = lastReceivedTime - firstTranmissionTime
 
 	temp = [groupedData[key] for key in groupedData if groupedData[key]['ifReceived'] is not None]
-	totalBytesReceived = packetSize * len(temp)
-	throughPut = totalBytesReceived/totalTime
-	# print "Throughput = " + str(throughPut) + " bytes/second"
+	totalBitsReceived = packetSize * len(temp)
+	throughPut = totalBitsReceived/totalTime
+	# print "Throughput = " + str(throughPut) + " bits/second"
 
 	delays = [groupedData[key]['delay'] for key in groupedData if groupedData[key]['ifReceived'] is not None]
 	totalDelay = sum(delays)
 	# print "Total delay = " + str(totalDelay) + " seconds"
+	jitter = np.std(delays)
 
-	return (throughPut, totalDelay)
+	return (throughPut, totalDelay, jitter)
 
-for power in range(4, 11):
+for power in range(4, 9):
 	dataRate = int(math.pow(2, power))
-	packetSize = dataRate / 4
+	packetSize = dataRate / 8
 	csmaValues = []
 	for i in range(1, 11):
 		fileName = "csma_" + str(dataRate) + "_" + str(i) + ".tr"
 		rawData = open(fileName, 'r')
-		print dataRate, i
 		csmaValues.append(getCSMAParams(rawData, packetSize))
 	throughPuts = [element[0] for element in csmaValues]
 	delays = [element[1] for element in csmaValues]
+	jitters = [element[2] for element in csmaValues]
 	avgDelay = float(sum(delays))/10
 	avgThroughPut = float(sum(throughPuts))/10
-	jitter = np.std(delays)
+	avgJitter = float(sum(jitters))/10
 
-	print "Data Rate \t= " + str(dataRate)
-	print "Avg Throughput \t= " + str(avgThroughPut)
-	print "Avg Delay \t= " + str(avgDelay)
-	print "Jitter \t\t= " + str(jitter)
+	print "Data Rate \t\t= " + str(dataRate)
+	print "-----------------------------------"
+	print "Avg Throughput \t\t= " + str(avgThroughPut)
+	print "SD of Throughput \t= " + str(np.std(throughPuts))
+	print "Avg Delay \t\t= " + str(avgDelay)
+	print "SD of Delay \t\t= " + str(np.std(delays))
+	print "Avg Jitter \t\t= " + str(avgJitter)
+	print "SD of Jitter \t\t= " + str(np.std(jitters))
 	print
