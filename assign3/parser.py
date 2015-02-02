@@ -63,9 +63,12 @@ def getCSMAParams(rawData, packetSize):
 
 	return (throughPut, totalDelay, jitter)
 
-for power in range(4, 9):
+def getAverageParams(power):
 	dataRate = int(math.pow(2, power))
-	packetSize = dataRate / 8
+	if dataRate > 128:
+		packetSize = 32
+	else:
+		packetSize = dataRate / 4
 	csmaValues = []
 	for i in range(1, 11):
 		fileName = "csma_" + str(dataRate) + "_" + str(i) + ".tr"
@@ -87,3 +90,22 @@ for power in range(4, 9):
 	print "Avg Jitter \t\t= " + str(avgJitter)
 	print "SD of Jitter \t\t= " + str(np.std(jitters))
 	print
+
+	return ([dataRate, avgThroughPut, np.std(throughPuts), avgDelay, np.std(delays), avgJitter, np.std(jitters)])
+
+avgThroughPutArray = []
+avgDelayArray = []
+avgJitterArray = []
+SDThroughPutArray = []
+SDDelayArray = []
+SDJitterArray = []
+
+for power in range(4, 11):
+	value = getAverageParams(power)
+
+	avgThroughPutArray.append(value[0])
+	avgDelayArray.append(value[1])
+	avgJitterArray.append(value[2])
+	SDThroughPutArray.append(value[3])
+	SDDelayArray.append(value[4])
+	SDJitterArray.append(value[5])
