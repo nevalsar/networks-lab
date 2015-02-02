@@ -7,6 +7,7 @@
 
 #!/bin/env python
 import sys
+from operator import itemgetter
 
 if len(sys.argv) < 2:
 	print "Parameters : data file and packetsize(defaults to 128 bytes)"
@@ -46,4 +47,21 @@ for key in groupedData:
 		else:
 			element['ifReceived'] = False
 
-print groupedData
+temp = [element for element in data if element[0] == '+']
+sentPackets = sorted(temp, key = itemgetter(1))
+firstTranmissionTime = float(sentPackets[0][1])
+
+temp = [element for element in data if element[0] == 'r']
+receivedPackets = sorted(temp, key = itemgetter(1))
+lastReceivedTime = float(sentPackets[-1][1])
+
+totalTime = lastReceivedTime - firstTranmissionTime
+
+temp = [groupedData[key] for key in groupedData if groupedData[key]['ifReceived'] is not None]
+totalBytesReceived = packetSize * len(temp)
+throughPut = totalBytesReceived/totalTime
+print "Throughput = " + str(throughPut) + " bytes/second"
+
+delays = [groupedData[key]['delay'] for key in groupedData if groupedData[key]['ifReceived'] is not None]
+totalDelay = sum(delays)
+print "Total delay = " + str(totalDelay) + " seconds"
