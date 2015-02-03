@@ -100,33 +100,28 @@ def plotValues(avgThroughPutArray, SDThroughPutArray, avgDelayArray, SDDelayArra
 	# THROUGHPUT
 	y = np.array(avgThroughPutArray)
 	e = np.array(SDThroughPutArray)
-        print y, e
+
 	plt.xlabel('Data Rate (Kbps)')
 	plt.ylabel('Data Rate (Kbps)')
-	# plt.axis([16, 1024, 0, 1650])
-	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
 	plt.show()
 
 	# DELAY
 	y = np.array(avgDelayArray)
 	e = np.array(SDDelayArray)
 
-        print y, e
 	plt.xlabel('Data Rate (Kbps)')
 	plt.ylabel('Data Rate (Kbps)')
-	# plt.axis([16, 1024, 0, 1650])
-	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
 	plt.show()
 
 	# JITTER
 	y = np.array(avgJitterArray)
 	e = np.array(SDJitterArray)
 
-        print y, e
 	plt.xlabel('Data Rate (Kbps)')
 	plt.ylabel('Data Rate (Kbps)')
-	# plt.axis([16, 1024, 0, 1650])
-	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
 	plt.show()
 
 
