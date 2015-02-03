@@ -10,6 +10,7 @@ import sys
 from operator import itemgetter
 import math
 import numpy as np
+import matplotlib.pyplot as plt
 
 def getCSMAParams(rawData, packetSize):
 	data = []
@@ -91,7 +92,44 @@ def getAverageParams(power):
 	print "SD of Jitter \t\t= " + str(np.std(jitters))
 	print
 
-	return ([dataRate, avgThroughPut, np.std(throughPuts), avgDelay, np.std(delays), avgJitter, np.std(jitters)])
+	return ([avgThroughPut, np.std(throughPuts), avgDelay, np.std(delays), avgJitter, np.std(jitters)])
+
+def plotValues(avgThroughPutArray, SDThroughPutArray, avgDelayArray, SDDelayArray, avgJitterArray, SDJitterArray):
+	x = np.array([16, 32, 64, 128, 256, 512, 1024])
+
+	# THROUGHPUT
+	y = np.array(avgThroughPutArray)
+	e = np.array(SDThroughPutArray)
+        print y, e
+	plt.xlabel('Data Rate (Kbps)')
+	plt.ylabel('Data Rate (Kbps)')
+	# plt.axis([16, 1024, 0, 1650])
+	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.show()
+
+	# DELAY
+	y = np.array(avgDelayArray)
+	e = np.array(SDDelayArray)
+
+        print y, e
+	plt.xlabel('Data Rate (Kbps)')
+	plt.ylabel('Data Rate (Kbps)')
+	# plt.axis([16, 1024, 0, 1650])
+	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.show()
+
+	# JITTER
+	y = np.array(avgJitterArray)
+	e = np.array(SDJitterArray)
+
+        print y, e
+	plt.xlabel('Data Rate (Kbps)')
+	plt.ylabel('Data Rate (Kbps)')
+	# plt.axis([16, 1024, 0, 1650])
+	plt.errorbar(x, y, e, linestyle='None', marker='^')
+	plt.show()
+
+
 
 avgThroughPutArray = []
 avgDelayArray = []
@@ -109,3 +147,5 @@ for power in range(4, 11):
 	SDThroughPutArray.append(value[3])
 	SDDelayArray.append(value[4])
 	SDJitterArray.append(value[5])
+
+plotValues(avgThroughPutArray, avgDelayArray, avgJitterArray, SDThroughPutArray, SDDelayArray, SDJitterArray)
