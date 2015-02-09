@@ -126,15 +126,15 @@ def plotValues(avgThroughPutArray, SDThroughPutArray, avgDelayArray, SDDelayArra
 	plt.show()
 
 
+def main():
+    avgThroughPutArray = []
+    avgDelayArray = []
+    avgJitterArray = []
+    SDThroughPutArray = []
+    SDDelayArray = []
+    SDJitterArray = []
 
-avgThroughPutArray = []
-avgDelayArray = []
-avgJitterArray = []
-SDThroughPutArray = []
-SDDelayArray = []
-SDJitterArray = []
-
-for power in range(4, 11):
+    for power in range(4, 11):
 	value = getAverageParams(power)
 
 	avgThroughPutArray.append(value[0])
@@ -144,4 +144,7 @@ for power in range(4, 11):
 	SDDelayArray.append(value[4])
 	SDJitterArray.append(value[5])
 
-plotValues(avgThroughPutArray, avgDelayArray, avgJitterArray, SDThroughPutArray, SDDelayArray, SDJitterArray)
+    plotValues(avgThroughPutArray, avgDelayArray, avgJitterArray, SDThroughPutArray, SDDelayArray, SDJitterArray)
+
+if __name__ == "__main__":
+    main()
