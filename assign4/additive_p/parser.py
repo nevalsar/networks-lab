@@ -42,8 +42,15 @@ def getCSMAParams(rawData, packetSize):
 	temp = [element for element in data if element[0] == '+']
 	sentPackets = sorted(temp, key = itemgetter(1))
 	if len(sentPackets) < 1:
-		print "No sent"
-		sys.exit()
+		print "No packets sent"
+		return (0, 0, 0)
+	elif len(sentPackets) == 1:
+		print "One packet sent"
+		key = (sentPackets[0][2], sentPackets[0][3])
+		if groupedData[key]['ifReceived'] is True:
+			return (groupedData[key]['delay'], 0, 0)
+		else:
+			return (0, 0, 0)
 	firstTranmissionTime = float(sentPackets[0][1])
 
 	temp = [element for element in data if element[0] == 'r']
@@ -58,13 +65,16 @@ def getCSMAParams(rawData, packetSize):
 	# print "Throughput = " + str(throughPut) + " bits/second"
 
 	delays = [groupedData[key]['delay'] for key in groupedData if groupedData[key]['ifReceived'] is True]
-	totalDelay = sum(delays)/len(delays)
+	if sum(delays) == 0:
+		totalDelay = 0
+	else:
+		totalDelay = sum(delays)/len(delays)
 	# print "Total delay = " + str(totalDelay) + " seconds"
 	jitter = np.std(delays)
 
 	return (throughPut, totalDelay, jitter)
 
-def getAverageParams(power):
+def getAverageParams(power, folderName):
 	dataRate = int(math.pow(2, power))
 	if dataRate > 128:
 		packetSize = 32
@@ -72,8 +82,7 @@ def getAverageParams(power):
 		packetSize = dataRate / 4
 	csmaValues = []
 	for i in range(1, 11):
-		fileName = "csma_" + str(dataRate) + "_" + str(i) + ".tr"
-		print fileName
+		fileName = folderName + "/csma_" + str(dataRate) + "_" + str(i) + ".tr"
 		rawData = open(fileName, 'r')
 		csmaValues.append(getCSMAParams(rawData, packetSize))
 	throughPuts = [element[0] for element in csmaValues]
@@ -99,50 +108,80 @@ def plotValues(avgThroughPutArray, SDThroughPutArray, avgDelayArray, SDDelayArra
 	x = np.array([16, 32, 64, 128, 256, 512, 1024])
 
 	# THROUGHPUT
-	y = np.array(avgThroughPutArray)
-	e = np.array(SDThroughPutArray)
-
 	plt.xlabel('Data Rate (Kbps)')
-	plt.ylabel('Data Rate (Kbps)')
-	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
+	plt.ylabel('Throughput (Kbps)')
+
+	y = np.array(avgThroughPutArray[0])
+	e = np.array(SDThroughPutArray[0])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='r')
+
+	y = np.array(avgThroughPutArray[1])
+	e = np.array(SDThroughPutArray[1])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='g')
+
+	y = np.array(avgThroughPutArray[2])
+	e = np.array(SDThroughPutArray[2])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='b')
+
 	plt.show()
 
 	# DELAY
-	y = np.array(avgDelayArray)
-	e = np.array(SDDelayArray)
-
 	plt.xlabel('Data Rate (Kbps)')
-	plt.ylabel('Data Rate (Kbps)')
-	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
+	plt.ylabel('Delay (Kbps)')
+
+	y = np.array(avgDelayArray[0])
+	e = np.array(SDDelayArray[0])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='r')
+
+	y = np.array(avgDelayArray[1])
+	e = np.array(SDDelayArray[1])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='g')
+
+	y = np.array(avgDelayArray[2])
+	e = np.array(SDDelayArray[2])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='b')
+
 	plt.show()
 
 	# JITTER
-	y = np.array(avgJitterArray)
-	e = np.array(SDJitterArray)
-
 	plt.xlabel('Data Rate (Kbps)')
-	plt.ylabel('Data Rate (Kbps)')
-	plt.errorbar(x, y, e, linestyle='-', fmt='o', ecolor='r')
+	plt.ylabel('Jitter (Kbps)')
+
+	y = np.array(avgJitterArray[0])
+	e = np.array(SDJitterArray[0])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='r')
+
+	y = np.array(avgJitterArray[1])
+	e = np.array(SDJitterArray[1])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='g')
+
+	y = np.array(avgJitterArray[2])
+	e = np.array(SDJitterArray[1])
+	plt.errorbar(x, y, e, linestyle='-', fmt='o', color='b')
+
 	plt.show()
 
 
 def main():
-    avgThroughPutArray = []
-    avgDelayArray = []
-    avgJitterArray = []
-    SDThroughPutArray = []
-    SDDelayArray = []
-    SDJitterArray = []
+    folderList = ["csma_p_addi", "csma_p_addi_5", "csma_p_addi_9"]
 
-    for power in range(4, 11):
-	value = getAverageParams(power)
+    avgThroughPutArray = [[] for i in range(len(folderList))]
+    avgDelayArray = [[] for i in range(len(folderList))]
+    avgJitterArray = [[] for i in range(len(folderList))]
+    SDThroughPutArray = [[] for i in range(len(folderList))]
+    SDDelayArray = [[] for i in range(len(folderList))]
+    SDJitterArray = [[] for i in range(len(folderList))]
 
-	avgThroughPutArray.append(value[0])
-	avgDelayArray.append(value[1])
-	avgJitterArray.append(value[2])
-	SDThroughPutArray.append(value[3])
-	SDDelayArray.append(value[4])
-	SDJitterArray.append(value[5])
+    for i in range(len(folderList)):
+        for power in range(4, 11):
+	    value = getAverageParams(power, folderList[i])
+
+	    avgThroughPutArray[i].append(value[0])
+	    avgDelayArray[i].append(value[1])
+	    avgJitterArray[i].append(value[2])
+	    SDThroughPutArray[i].append(value[3])
+	    SDDelayArray[i].append(value[4])
+	    SDJitterArray[i].append(value[5])
 
     plotValues(avgThroughPutArray, avgDelayArray, avgJitterArray, SDThroughPutArray, SDDelayArray, SDJitterArray)
 
