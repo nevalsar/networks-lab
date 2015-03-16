@@ -14,18 +14,10 @@ client.c -- a stream socket client demo
 #include <arpa/inet.h>
 #include <bits/stdc++.h>
 
-#define FIS_PORT "32000"
-#define PEER_PORT "31000"  // the port the client will be connecting to
+#define FIS_PORT "11000"  // FIS Server listening port
+#define PEER_PORT "12000"  // the port to communicate to peer
 
 #define MAXDATASIZE 100  // max number of bytes we can get at once
-
-// get sockaddr, IPv4 or IPv6
-void* get_in_addr(struct sockaddr *sa) {
-    if (sa->sa_family == AF_INET) {
-        return &(((struct sockaddr_in*)sa)->sin_addr);
-    }
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
 
 int connect_to_host(struct addrinfo *servinfo, int *sockfd) {
 
@@ -52,7 +44,7 @@ int connect_to_host(struct addrinfo *servinfo, int *sockfd) {
         exit(2);
     }
 
-    inet_ntop(p->ai_family, get_in_addr((struct sockaddr*)p->ai_addr),
+    inet_ntop(p->ai_family, &(((struct sockaddr_in *)p->ai_addr)->sin_addr),
         s, sizeof s);
     printf("client: connecting to %s\n", s);
 
@@ -64,7 +56,7 @@ void get_host_info(struct addrinfo **servinfo, std::string serverip){
     int rv;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
     if ((rv = getaddrinfo(serverip.c_str(), PEER_PORT, &hints, servinfo)) != 0) {
@@ -73,7 +65,7 @@ void get_host_info(struct addrinfo **servinfo, std::string serverip){
     }
 }
 
-void receive_reply(std::string fis_ip) {
+void receive_reply() {
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -84,10 +76,11 @@ void receive_reply(std::string fis_ip) {
     char s[INET6_ADDRSTRLEN];
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;  // set to AF_INET to force IPv4
+    hints.ai_family = AF_INET;  // set to AF_INET to force IPv4
     hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = AI_PASSIVE;
 
-    if ((rv = getaddrinfo(fis_ip.c_str(), PEER_PORT, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, PEER_PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         exit(6);
     }
@@ -136,7 +129,7 @@ void send_query(std::string fis_ip, std::string query){
     int numbytes;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
     if ((rv = getaddrinfo(fis_ip.c_str(), FIS_PORT, &hints, &servinfo)) != 0) {
@@ -200,7 +193,7 @@ int main(int argc, char const *argv[]) {
             fflush(stdout);
             fscanf(stdin, "%100s", query+1);
             send_query(fis_ip, query);
-            receive_reply(fis_ip);
+            receive_reply();
 
         } else if (choice == 2) {
             char filename[50];

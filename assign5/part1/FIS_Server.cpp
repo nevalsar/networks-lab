@@ -1,5 +1,5 @@
 /*
-** FIS_Server.c -- a datagram sockets "server" demo
+** FIS_Server.cpp
 */
 
 #include <bits/stdc++.h>
@@ -14,33 +14,22 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define FIS_PORT "32000"    // the port users will be connecting to
-#define PEER_PORT "31000"    // the port to reply to peer
+#define FIS_PORT "11000"  // FIS Server listening port
+#define PEER_PORT "12000"  // the port to communicate to peer
 
-#define MAXBUFLEN 100
-
-// get sockaddr, IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa) {
-    if (sa->sa_family == AF_INET) {
-        return &(((struct sockaddr_in*)sa)->sin_addr);
-    }
-
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
+#define MAXDATASIZE 100
 
 void send_reply(std::string ipstring, std::string reply){
 
-    int sockfd;
+    int sockfd, rv, numbytes;
     struct addrinfo hints, *servinfo, *p;
-    int rv;
-    int numbytes;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
     if ((rv = getaddrinfo(ipstring.c_str(), PEER_PORT, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        fprintf(stderr, "FIS_Server UDP - getaddrinfo: %s\n", gai_strerror(rv));
         exit(5);
     }
 
@@ -48,7 +37,7 @@ void send_reply(std::string ipstring, std::string reply){
     for (p = servinfo; p != NULL; p = p->ai_next) {
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
-            perror("talker: socket");
+            perror("FIS_Server UDP - socket:");
             continue;
         }
 
@@ -56,41 +45,35 @@ void send_reply(std::string ipstring, std::string reply){
     }
 
     if (p == NULL) {
-        fprintf(stderr, "talker: failed to bind socket\n");
+        fprintf(stderr, "FIS_Server UDP: failed to bind socket\n");
         exit(5);
     }
 
     if ((numbytes = sendto(sockfd, reply.c_str(), strlen(reply.c_str()), 0,
              p->ai_addr, p->ai_addrlen)) == -1) {
-        perror("talker: sendto");
+        perror("FIS_Server UDP - sendto");
         exit(1);
     }
 
     freeaddrinfo(servinfo);
 
-    printf("Peer_Server: sent reply \'%s\' to Peer_Client at %s\n", reply.c_str(), ipstring.c_str());
+    printf("Peer_Server UDP : sent reply \'%s\' to Peer_Client at %s\n", reply.c_str(), ipstring.c_str());
     close(sockfd);
-
 }
 
-int main(void) {
-    int sockfd;
+void UDP_Bind(int& sockfd) {
     struct addrinfo hints, *servinfo, *p;
     int rv;
     int numbytes;
-    struct sockaddr_storage their_addr;
-
-    socklen_t addr_len;
-    char s[INET6_ADDRSTRLEN];
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;  // set to AF_INET to force IPv4
+    hints.ai_family = AF_INET;  // set to AF_INET to force IPv4
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE;  // use my IP
 
     if ((rv = getaddrinfo(NULL, FIS_PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
+        exit(1);
     }
 
     // loop through all the results and bind to the first we can
@@ -112,19 +95,28 @@ int main(void) {
 
     if (p == NULL) {
         fprintf(stderr, "FIS_Server: failed to bind socket\n");
-        return 2;
+        exit(2);
     }
 
     freeaddrinfo(servinfo);
-
     printf("FIS_Server is up.\nWaiting for incoming connections...\n");
+}
+
+int main(void) {
+    int sockfd;
+    socklen_t addr_len;
+    int numbytes;
+    char s[INET6_ADDRSTRLEN];
+    struct sockaddr_storage their_addr;
+
+    UDP_Bind(sockfd);
 
     std::map <std::string, std::string> file_list;
 
     while (1) {
-        char buf[MAXBUFLEN];
+        char buf[MAXDATASIZE];
         addr_len = sizeof their_addr;
-        if ((numbytes = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+        if ((numbytes = recvfrom(sockfd, buf, MAXDATASIZE-1 , 0,
             (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
@@ -133,7 +125,7 @@ int main(void) {
         buf[numbytes] = '\0';
 
         std::string ipstring = inet_ntop(their_addr.ss_family,
-                get_in_addr((struct sockaddr *)&their_addr),
+                &(((struct sockaddr_in*)&their_addr)->sin_addr),
                 s, sizeof s);
 
         printf("FIS_Server: got packet from %s\n\n", ipstring.c_str());

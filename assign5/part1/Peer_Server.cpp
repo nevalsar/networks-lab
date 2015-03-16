@@ -18,8 +18,8 @@
 #include "dirent.h"
 #include <bits/stdc++.h>
 
-#define PEER_PORT "31000"  // the port users will be connecting to
-#define FIS_PORT "32000"  // the port users will be connecting to
+#define FIS_PORT "11000"  // FIS Server listening port
+#define PEER_PORT "12000"  // the port to communicate to peer
 
 #define BACKLOG 10  // how many pending connections queue will hold
 
@@ -113,7 +113,7 @@ void send_files(std::string serverip) {
     int numbytes;
 
     memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
 
     if ((rv = getaddrinfo(serverip.c_str(), FIS_PORT, &hints, &servinfo)) != 0) {
