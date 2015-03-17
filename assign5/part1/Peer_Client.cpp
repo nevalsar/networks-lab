@@ -20,7 +20,6 @@ client.c -- a stream socket client demo
 #define MAXDATASIZE 100  // max number of bytes we can get at once
 
 int connect_to_host(struct addrinfo *servinfo, int *sockfd) {
-
     struct addrinfo *p;
     char s[INET6_ADDRSTRLEN];
 
@@ -65,7 +64,7 @@ void get_host_info(struct addrinfo **servinfo, std::string serverip){
     }
 }
 
-void receive_reply() {
+void receive_reply(char* reply) {
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -118,7 +117,7 @@ void receive_reply() {
     close(sockfd);
 
     buf[numbytes] = '\0';
-    printf("Received reply : %s\n", buf);
+    strcpy(reply, buf);
 }
 
 void send_query(std::string fis_ip, std::string query){
@@ -179,32 +178,36 @@ int main(int argc, char const *argv[]) {
     }
 
     while (1) {
-        int choice;
         printf("\n-- Peer Client --\n");
-        printf("Enter 1 to query FIS Server\n");
+        char query[100] = "0";
+        char reply[100] = "0";
+        printf("Enter filename to query peer IP: ");
         fflush(stdout);
-        printf("Enter 2 to Download from peer\n");
+        fscanf(stdin, "%100s", query+1);
+        send_query(fis_ip, query);
+        receive_reply(reply);
+        printf("Received reply : %s\n", reply);
+
+
+        if (strstr(reply, "Not") != NULL)
+            continue;
+
+        int choice;
+        printf("Enter 1 to download this file\n");
+        fflush(stdout);
+        printf("Enter 2 to enter another query\n");
         fflush(stdout);
         fscanf(stdin, "%3d", &choice);
 
-        if (choice == 1){
-            char query[100] = "0";
-            printf("Enter filename to query peer IP: ");
-            fflush(stdout);
-            fscanf(stdin, "%100s", query+1);
-            send_query(fis_ip, query);
-            receive_reply();
+        if (choice == 2){
+            continue;
 
-        } else if (choice == 2) {
+        } else if (choice == 1) {
             char filename[50];
             char serverip[75];
-            printf("Enter peer IP: ");
-            fflush(stdout);
-            fscanf(stdin, "%75s", serverip);
-            printf("Enter filename: ");
-            fflush(stdout);
-            fscanf(stdin, "%50s", filename);
 
+            strcpy(serverip, reply);
+            strcpy(filename, query+1);
 
               if (filename[strlen(filename)-1] == '\n')
                 filename[strlen(filename)-1] = '\0';
@@ -229,6 +232,8 @@ int main(int argc, char const *argv[]) {
                 fprintf(stderr, "Cannot open output file");
                 return 1;
               }
+
+              printf("Downloading %s from %s :\n", filename, serverip);
 
               int bytesReceived = recv(sockfd, recvBuff, MAXDATASIZE-1, 0);
               // write(1, recvBuff, bytesReceived);
