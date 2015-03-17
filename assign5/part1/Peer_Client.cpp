@@ -239,12 +239,25 @@ int main(int argc, char const *argv[]) {
               // write(1, recvBuff, bytesReceived);
               fwrite(recvBuff, 1, bytesReceived, outputFile);
 
+              char temp = '.';
+              int count = 0;
               while ((bytesReceived = recv(sockfd, recvBuff, MAXDATASIZE-1, 0)) > 0) {
-                  // you should add error checking here
-                  // write(1, recvBuff, bytesReceived);
-                  fwrite(recvBuff, 1, bytesReceived, outputFile);
+                    // write(1, recvBuff, bytesReceived);
+                    if (count < 20) {
+                        printf("%c", temp);
+                        count++;
+                    } else {
+                        printf("\b \b");
+                        count++;
+                    }
+                    if (count == 40)
+                        count = 0;
+
+
+                    fwrite(recvBuff, 1, bytesReceived, outputFile);
               }
 
+              printf("\nDone downloading file !\n");
               fclose(outputFile);
               close(sockfd);
         } else {
