@@ -109,8 +109,10 @@ int main(void) {
     char s[INET6_ADDRSTRLEN];
     struct sockaddr_storage their_addr;
 
+    // bind socket listening on my IP
     UDP_Bind(sockfd);
 
+    // filename, IP map
     std::map <std::string, std::string> file_list;
 
     while (1) {
