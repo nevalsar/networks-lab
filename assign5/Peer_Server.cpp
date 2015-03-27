@@ -17,6 +17,7 @@
 #include <sys/stat.h>
 #include "dirent.h"
 #include <bits/stdc++.h>
+#include "Socket.cpp"
 
 #define FIS_PORT "11000"  // FIS Server listening port
 #define PEER_PORT "12000"  // the port to communicate to peer
@@ -65,77 +66,16 @@ void* get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void connect_to_host(struct addrinfo *servinfo, struct addrinfo **p, int *sockfd) {
+void send_files_list(std::string serverip) {
 
-    char s[INET6_ADDRSTRLEN];
-    int yes = 1;
-
-    // loop through all the results and connect to the first we can
-    for (*p = servinfo; *p != NULL; *p = (*p)->ai_next) {
-        if ((*sockfd = socket((*p)->ai_family, (*p)->ai_socktype,
-                (*p)->ai_protocol)) == -1) {
-            perror("Peer_Server: socket");
-            continue;
-        }
-
-        if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
-                sizeof(int)) == -1) {
-            perror("setsockopt");
-            exit(1);
-        }
-
-        if (bind(*sockfd, (*p)->ai_addr, (*p)->ai_addrlen) == -1) {
-            close(*sockfd);
-            perror("Peer_Server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-    if (*p == NULL) {
-        fprintf(stderr, "Peer_Server: failed to connect\n");
-        exit(2);
-    }
-
-    inet_ntop((*p)->ai_family, get_in_addr((struct sockaddr*)(*p)->ai_addr),
-        s, sizeof s);
-    printf("Peer_Server: connecting to %s\n", s);
-
-
-}
-
-void send_files(std::string serverip) {
-
-    int sockfd;
-    struct addrinfo hints, *servinfo, *p;
-    int rv;
-    int numbytes;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
-
-    if ((rv = getaddrinfo(serverip.c_str(), FIS_PORT, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        exit(7);
-    }
-
-    // loop through all the results and make a socket
-    for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                p->ai_protocol)) == -1) {
-            perror("talker: socket");
-            continue;
-        }
-
-        break;
-    }
-
-    if (p == NULL) {
-        fprintf(stderr, "talker: failed to bind socket\n");
-        exit(8);
-    }
+    int sockfd, numbytes;
+    Socket new_connection;
+    new_connection.ifUDP = true;
+    new_connection.ifRemote = true;
+    new_connection.ip.assign(serverip.c_str());
+    new_connection.port.assign(FIS_PORT);
+    new_connection.getaddressinformation();
+    sockfd = new_connection.getsocket(false, false);
 
     std::vector<std::string> files =  getfiles("./");
     std::string files_buff = "1";
@@ -144,48 +84,18 @@ void send_files(std::string serverip) {
     }
 
     if ((numbytes = sendto(sockfd, files_buff.c_str(), strlen(files_buff.c_str()), 0,
-             p->ai_addr, p->ai_addrlen)) == -1) {
-        perror("talker: sendto");
+             (new_connection.ptr_address)->ai_addr, (new_connection.ptr_address)->ai_addrlen)) == -1) {
+        perror("sendto");
         exit(1);
     }
-
-    freeaddrinfo(servinfo);
+    new_connection.cleardata();
 
     printf("Peer server : Sent files list to %s\n", serverip.c_str());
     close(sockfd);
 }
 
-void get_host_info(struct addrinfo **servinfo, int type, std::string port, std::string serverip){
-    struct addrinfo hints;
-    int rv;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    if (type = 0) {
-        hints.ai_socktype = SOCK_DGRAM;
-        if ((rv = getaddrinfo(serverip.c_str(), port.c_str(), &hints, servinfo)) != 0) {
-            fprintf(stderr, "Peer_Server: getaddrinfo: %s\n", gai_strerror(rv));
-            exit(1);
-        }
-    } else {
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_flags = AI_PASSIVE;  // use my IP
-        if ((rv = getaddrinfo(NULL, port.c_str(), &hints, servinfo)) != 0) {
-            fprintf(stderr, "Peer_Server: getaddrinfo: %s\n", gai_strerror(rv));
-            exit(1);
-        }
-    }
-
-
-    // if ((rv = getaddrinfo(NULL, port.c_str(), &hints, servinfo)) != 0) {
-    //     fprintf(stderr, "Peer_Server: getaddrinfo: %s\n", gai_strerror(rv));
-    //     exit(1);
-    // }
-}
-
 int main( int argc, char* argv[]) {
     int sockfd, new_fd;  // listen on sockfd, new connection on new_fd
-    struct addrinfo *servinfo, *p;
     struct sockaddr_storage their_addr;  // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
@@ -196,14 +106,19 @@ int main( int argc, char* argv[]) {
         printf("Usage: Peer_Server FIS_Server_IP\n");
         exit(5);
     } else {
-        serverip = argv[1];
+        serverip.assign(argv[1]);
     }
 
-    send_files(serverip);
+    send_files_list(serverip);
 
-    get_host_info(&servinfo, 1, PEER_PORT, serverip);
-    connect_to_host(servinfo, &p, &sockfd);
-    freeaddrinfo(servinfo);  // all done with this structure
+    Socket new_connection;
+    new_connection.ifUDP = false;
+    new_connection.ifRemote = false;
+    new_connection.ip.assign(serverip.c_str());
+    new_connection.port.assign(PEER_PORT);
+    new_connection.getaddressinformation();
+    sockfd = new_connection.getsocket(true, false);
+    new_connection.cleardata();
 
     if (listen(sockfd, BACKLOG) == -1) {
         perror("Peer_Server: listen");

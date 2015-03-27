@@ -13,93 +13,33 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include "Socket.cpp"
 
 #define FIS_PORT "11000"  // FIS Server listening port
 #define PEER_PORT "12000"  // the port to communicate to peer
 
 #define MAXDATASIZE 100
 
-void send_reply(std::string ipstring, std::string reply){
-
+void send_reply(std::string ipstring, std::string reply) {
     int sockfd, rv, numbytes;
-    struct addrinfo hints, *servinfo, *p;
+    Socket new_connection;
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
-
-    if ((rv = getaddrinfo(ipstring.c_str(), PEER_PORT, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "FIS_Server UDP - getaddrinfo: %s\n", gai_strerror(rv));
-        exit(5);
-    }
-
-    // loop through all the results and make a socket
-    for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                p->ai_protocol)) == -1) {
-            perror("FIS_Server UDP - socket:");
-            continue;
-        }
-
-        break;
-    }
-
-    if (p == NULL) {
-        fprintf(stderr, "FIS_Server UDP: failed to bind socket\n");
-        exit(5);
-    }
+    new_connection.ifUDP = true;
+    new_connection.ifRemote = true;
+    new_connection.ip.assign(ipstring.c_str());
+    new_connection.port.assign(PEER_PORT);
+    new_connection.getaddressinformation();
+    sockfd = new_connection.getsocket(false, false);
 
     if ((numbytes = sendto(sockfd, reply.c_str(), strlen(reply.c_str()), 0,
-             p->ai_addr, p->ai_addrlen)) == -1) {
+             (new_connection.ptr_address)->ai_addr, (new_connection.ptr_address)->ai_addrlen)) == -1) {
         perror("FIS_Server UDP - sendto");
         exit(1);
     }
-
-    freeaddrinfo(servinfo);
+    new_connection.cleardata();
 
     printf("Peer_Server UDP : sent reply \'%s\' to Peer_Client at %s\n", reply.c_str(), ipstring.c_str());
     close(sockfd);
-}
-
-void UDP_Bind(int& sockfd) {
-    struct addrinfo hints, *servinfo, *p;
-    int rv;
-    int numbytes;
-
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;  // set to AF_INET to force IPv4
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE;  // use my IP
-
-    if ((rv = getaddrinfo(NULL, FIS_PORT, &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        exit(1);
-    }
-
-    // loop through all the results and bind to the first we can
-    for (p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                p->ai_protocol)) == -1) {
-            perror("FIS_Server: socket");
-            continue;
-        }
-
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            close(sockfd);
-            perror("FIS_Server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-    if (p == NULL) {
-        fprintf(stderr, "FIS_Server: failed to bind socket\n");
-        exit(2);
-    }
-
-    freeaddrinfo(servinfo);
-    printf("FIS_Server is up.\nWaiting for incoming connections...\n");
 }
 
 int main(void) {
@@ -110,7 +50,13 @@ int main(void) {
     struct sockaddr_storage their_addr;
 
     // bind socket listening on my IP
-    UDP_Bind(sockfd);
+    Socket new_connection;
+    new_connection.ifUDP = true;
+    new_connection.ifRemote = false;
+    new_connection.port.assign(FIS_PORT);
+    new_connection.getaddressinformation();
+    sockfd = new_connection.getsocket(true, false);
+    new_connection.cleardata();
 
     // filename, IP map
     std::map <std::string, std::string> file_list;
@@ -123,31 +69,26 @@ int main(void) {
             perror("recvfrom");
             exit(1);
         }
-
         buf[numbytes] = '\0';
 
         std::string ipstring = inet_ntop(their_addr.ss_family,
                 &(((struct sockaddr_in*)&their_addr)->sin_addr),
                 s, sizeof s);
-
         printf("FIS_Server: got packet from %s\n\n", ipstring.c_str());
 
         if (buf[0] =='1') {
             // Receiving file list from Peer_Server
             char* file;
-            file=strtok(buf+1, "\n");
+            file = strtok(buf + 1, "\n");
             while (file != NULL) {
                 if (file) {
                     file_list[file] = ipstring;
                     printf("Add : File \'%s\' from %s\n", file, ipstring.c_str());
                 }
-                file=strtok(NULL, "\n");
+                file = strtok(NULL, "\n");
             }
-
-
         } else if (buf[0] == '0') {
             // IP Query received
-
             printf("Queried file : %s\n", buf+1);
             if (file_list.find(buf+1) != file_list.end()) {
                 printf("Server IP = %s\n", file_list[buf+1].c_str());
@@ -158,10 +99,7 @@ int main(void) {
             }
         }
         printf("\n");
-
     }
-
     close(sockfd);
-
     return 0;
 }
