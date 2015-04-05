@@ -49,7 +49,6 @@ class Socket{
     char s[INET_ADDRSTRLEN];
     struct addrinfo hints, *servinfo;
     int sockfd;
-    bool ifRemote;
     struct addrinfo *ptr_address;
 
     void getaddressinformation(string, string, bool, bool);
@@ -62,6 +61,7 @@ class Socket{
     string receive_tcp_string(int);
     int getsocket(string, string, bool, bool, bool, bool);
     void send_tcp_file(int, string);
+    void receive_tcp_file(int, string);
 };
 
 void Socket::getaddressinformation(string ip, string port, bool isUDP,
@@ -122,7 +122,7 @@ int Socket::getsocket(string ip, string port, bool isUDP, bool isRemote,
             }
         }
 
-        if (ifRemote) {
+        if (isRemote) {
             inet_ntop(ptr_address->ai_family,
                 &(((struct sockaddr_in *)ptr_address->ai_addr)->sin_addr),
                 s, sizeof s);
@@ -208,8 +208,8 @@ std::string Socket::receive_udp_string(std::string port) {
 
     close(sockfd);
     buf[numbytes] = '\0';
-    reply.assign(ipv4addr + '\n' + port + '\n' + buf);
-    std::cout <<"socket - receive_udp_string - Received UDP string" <<reply
+    reply.assign(port + '\n' + buf);
+    std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
         <<std::endl;
     return reply;
 }
@@ -260,6 +260,36 @@ void Socket::send_tcp_file(int tcp_socket, string filename) {
         exit(1);
     }
     close(file_desc);
+}
+
+void Socket::receive_tcp_file(int tcp_socket, string filename) {
+    int count, bytesReceived;
+    char recvBuff[MAXDATASIZE];
+
+    FILE *outputFile = fopen(filename.c_str(), "wb");
+    if (outputFile == NULL) {
+        fprintf(stderr, "Cannot open output file");
+        exit(1);
+    }
+
+    count = 0;
+    bytesReceived = recv(sockfd, recvBuff, MAXDATASIZE-1, 0);
+    fwrite(recvBuff, 1, bytesReceived, outputFile);
+    while ((bytesReceived = recv(sockfd, recvBuff, MAXDATASIZE-1, 0)) > 0) {
+        if (count < 20) {
+            printf(".");
+            count++;
+        } else {
+            printf("\b \b");
+            count++;
+        }
+        if (count == 40)
+            count = 0;
+        fwrite(recvBuff, 1, bytesReceived, outputFile);
+    }
+
+    printf("\nDone downloading file !\n");
+    fclose(outputFile);
 }
 
 #endif
