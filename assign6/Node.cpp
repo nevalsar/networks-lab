@@ -213,13 +213,18 @@ void Node::update_node_data(string reply) {
     reply.assign(temp);
 
     pos = reply.find_first_of('\n');
-    std::get<2>(successor) = std::atoll((reply.substr(0, pos)).c_str());
+    string temp_str = reply.substr(0, pos);
+    std::size_t temp_hash = 0;
+    for ( int k = 0; k < temp_str.size(); k++) {
+        temp_hash *= 10;
+        temp_hash += (temp_str[k] - '0');
+    }
+    std::get<2>(successor) = temp_hash;
     temp = reply.substr(pos+1);
     reply.assign(temp);
 
     cout <<"Successor : " <<std::get<0>(successor) <<":"
         <<std::get<1>(successor) <<":" <<std::get<2>(successor) << endl;
-    getchar();
 
     keys.clear();
     cout <<"New keys :" <<endl;
@@ -228,7 +233,13 @@ void Node::update_node_data(string reply) {
         std::tuple<std::size_t, string, string> temp_key;
 
         pos = reply.find_first_of('\n');
-        std::get<0>(temp_key) = std::atoll((reply.substr(0, pos)).c_str());
+        string temp_str = reply.substr(0, pos);
+        std::size_t temp_hash = 0;
+        for ( int k = 0; k < temp_str.size(); k++) {
+            temp_hash *= 10;
+            temp_hash += (temp_str[k] - '0');
+        }
+        std::get<0>(temp_key) = temp_hash;;
         temp = reply.substr(pos+1);
         reply.assign(temp);
 
