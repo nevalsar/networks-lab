@@ -216,6 +216,59 @@ void Node::update_node_data() {
     reply.assign(buf);
     std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
         <<std::endl;
+
+    // parse and update node data
+    std::size_t pos;
+    string temp;
+
+    pos = reply.find_first_of('\n');
+    (std::get<0>(successor)).assign(reply.substr(0, pos));
+    temp = reply.substr(pos+1);
+    reply.assign(temp);
+
+    pos = reply.find_first_of('\n');
+    (std::get<1>(successor)).assign(reply.substr(0, pos));
+    temp = reply.substr(pos+1);
+    reply.assign(temp);
+
+    pos = reply.find_first_of('\n');
+    std::get<2>(successor) = std::atoll((reply.substr(0, pos)).c_str());
+    temp = reply.substr(pos+1);
+    reply.assign(temp);
+
+    cout <<"Successor : " <<std::get<0>(successor) <<":"
+        <<std::get<1>(successor) <<":" <<std::get<2>(successor) << endl;
+    getchar();
+
+    keys.clear();
+    cout <<"New keys :" <<endl;
+    cout <<"------------------" <<endl;
+    while (reply.size() > 0) {
+        std::tuple<std::size_t, string, string> temp_key;
+
+        pos = reply.find_first_of('\n');
+        std::get<0>(temp_key) = std::atoll((reply.substr(0, pos)).c_str());
+        temp = reply.substr(pos+1);
+        reply.assign(temp);
+
+        pos = reply.find_first_of('\n');
+        (std::get<1>(temp_key)).assign(reply.substr(0, pos));
+        temp = reply.substr(pos+1);
+        reply.assign(temp);
+
+        pos = reply.find_first_of('\n');
+        (std::get<2>(temp_key)).assign(reply.substr(0, pos));
+        temp = reply.substr(pos+1);
+        reply.assign(temp);
+
+        keys.push_back(temp_key);
+        cout <<std::get<0>(temp_key) <<":" <<std::get<1>(temp_key) <<":"
+            <<std::get<2>(temp_key) <<endl;
+        getchar();
+        cout <<reply;
+        getchar();
+    }
+    cout <<"------------------" <<endl;
 }
 
 void Node::rootlistener() {
@@ -508,14 +561,15 @@ void Node::process_new_node(string filenames, string ip_node) {
             updated_data.append(std::get<1>(temp));
             updated_data.push_back('\n');
             updated_data.append(std::to_string(std::get<2>(temp)));
+            updated_data.push_back('\n');
             // append updated keys list
             for (int j = 0; j < map_file_to_node[i].size(); j++) {
-                updated_data.push_back('\n');
                 updated_data.append(std::to_string(std::get<0>(keys_all[map_file_to_node[i][j]])));
                 updated_data.push_back('\n');
                 updated_data.append(std::get<1>(keys_all[map_file_to_node[i][j]]));
                 updated_data.push_back('\n');
                 updated_data.append(std::get<2>(keys_all[map_file_to_node[i][j]]));
+                updated_data.push_back('\n');
             }
             // send new keys list to each node
             Socket sockobj;
