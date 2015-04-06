@@ -92,20 +92,20 @@ class Node{
     Node(int);
     ~Node();
     void setup_sockets();
-    void send_files_list(std::vector<string>);
     void rootlistener();
-    void process_root_udp_connection();
-    void process_file_query(string, string);
-    std::pair<string, string> get_file_owner(std::size_t);
-    void process_new_node(string, string);
-    void print_stats(bool, bool);
-    Node* getpointer_to_node(std::size_t, Node*);
-    void stabilize();
-    void add_key(std::tuple<std::size_t, string, string>);
-    std::vector<std::tuple<std::size_t, string, string> > clear_keys();
+    void send_files_list(std::vector<string>);
     void nodelistener();
+    void process_udp_connection();
+    void process_file_query(string, string);
+    void process_new_node(string, string);
+    void update_node_data(string);
     void send_requested_file();
-    void update_node_data();
+    void print_stats(bool, bool);
+    std::pair<string, string> get_file_owner(std::size_t);
+    Node* getpointer_to_node(std::size_t, Node*);
+    void process_root_file_query(string, string);
+    void process_file_query(string);
+    void process_query_result(string);
 };
 
 Node::Node(int n) {
@@ -178,7 +178,7 @@ void Node::nodelistener() {
                     cout <<"New udp connection" <<endl;
                     // incoming UDP connection
                     // TODO
-                    update_node_data();
+                    process_udp_connection();
                 } else if (i == listen_tcp_sock) {
                     cout <<"Incoming file request" <<endl;
                     // incoming TCP connection
@@ -191,29 +191,10 @@ void Node::nodelistener() {
     }  // end listen loop
 }
 
-void Node::update_node_data() {
+void Node::update_node_data(string reply) {
     // Socket sockobj;
     // string reply = sockobj.receive_udp_string(std::to_string(ROOT_PORT + node_count), listen_udp_sock);
-    int numbytes;
-    struct sockaddr_storage their_addr;
-    socklen_t addr_len = sizeof their_addr;
-    char buf[MAXDATASIZE];
-    char ipv4addr[INET_ADDRSTRLEN];
-    std::string reply;
 
-    std::cout <<"Waiting at port " <<port.c_str() <<std::endl;
-
-    if ((numbytes = recvfrom(listen_udp_sock, buf, MAXDATASIZE-1 , 0,
-        (struct sockaddr *)&their_addr, &addr_len)) == -1) {
-        perror("socket - receive_udp_string - recvfrom");
-        exit(1);
-    }
-
-    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr),
-        ipv4addr, sizeof ipv4addr);
-
-    buf[numbytes] = '\0';
-    reply.assign(buf);
     std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
         <<std::endl;
 
@@ -264,9 +245,6 @@ void Node::update_node_data() {
         keys.push_back(temp_key);
         cout <<std::get<0>(temp_key) <<":" <<std::get<1>(temp_key) <<":"
             <<std::get<2>(temp_key) <<endl;
-        getchar();
-        cout <<reply;
-        getchar();
     }
     cout <<"------------------" <<endl;
 }
@@ -284,7 +262,7 @@ void Node::rootlistener() {
                 if (i == listen_udp_sock) {
                     cout <<"New udp connection" <<endl;
                     // incoming UDP connection
-                    process_root_udp_connection();
+                    process_udp_connection();
                 } else if (i == listen_tcp_sock) {
                     cout <<"Incoming file request" <<endl;
                     // incoming TCP connection
@@ -319,31 +297,6 @@ std::vector<string> getfiles(string directory) {
         error("could not open Directory");
     }
     return v;
-}
-
-Node* Node::getpointer_to_node(std::size_t node_id, Node* startptr) {
-    // TODO
-    // base condition
-    // cout <<"Finding pointer" <<endl;
-    // if (this == startptr) {
-    //     return startptr;
-    // } else if (this->id == node_id) {
-    //     cout <<"2nd" <<endl;
-    //     return this;
-    // } else {
-    //     cout <<"3rd" <<endl;
-    //     return successor->getpointer_to_node(node_count, startptr);
-    // }
-}
-
-std::pair<std::string, std::string> Node::get_file_owner(std::size_t hashval) {
-    // if (this == startptr)
-    //     return make_pair("Not", "found");
-    // for (int i = 0; i < keys.size(); i++) {
-    //     if (std::get<0>(keys) == hashval)
-    //         return make_pair(std::get<1>(keys), std::get<2>(keys));
-    // }
-    // return make_pair("Not", "found");
 }
 
 void Node::send_files_list(std::vector<string> files) {
@@ -435,7 +388,7 @@ void Node::send_requested_file() {
     close(new_fd);  // parent doesn't need this
 }
 
-void Node::process_root_udp_connection() {
+void Node::process_udp_connection() {
     // receive udp string from listen_udp_sock
     struct sockaddr_storage their_addr;
     socklen_t addr_len = sizeof their_addr;
@@ -453,29 +406,115 @@ void Node::process_root_udp_connection() {
     buf[numbytes] = '\0';
 
     string message(buf);
-    std::size_t pos = message.find_first_of('/');
-    if(pos == 0) {
-        // new IP query
-        process_file_query(message.substr(pos+1), string(s));
+    std::size_t pos;
+    if ((pos = message.find_first_of('/')) == 0) {
+        if (node_count == 0)
+            // new IP query
+            process_root_file_query(message.substr(pos+1), string(s));
+        else
+            // forwarded IP query
+            process_file_query(message.substr(pos+1));
+    } else if (((pos = message.find_first_of('|')) == 0)) {
+        // handle forward query result
+        process_query_result(message.substr(pos+1));
     } else {
-        // a new node is joining
-        process_new_node(message, string(s));
+        if (node_count == 0)
+            // a new node is joining
+            process_new_node(message, string(s));
+        else
+            // update node successor and keys
+            update_node_data(message);
     }
 }
 
-void Node::process_file_query(string filename, string ip_client) {
+void Node::process_root_file_query(string filename, string ip_client) {
     // TODO
     // search for filename in chord ring
     Socket sockobj;
     string reply;
-    bool isFound;
-    if (isFound) {
-        // if filename is found
-        // reply - ip \n port \n id
+    std::size_t hashval = hash_fn(filename);
+    cout <<"New query for : " <<filename <<":" <<hashval <<endl;
+    bool isFound = false;
+    bool ifExist = false;
+    for (int i = 0; i < keys_all.size(); i++)
+        if (std::get<0>(keys_all[i]) == hashval) {
+            ifExist = true;
+            break;
+        }
+    if (ifExist) {
+        // if filename exists
+        // check local
+        for (int i = 0; i < keys.size(); i++)
+            if (std::get<0>(keys[i]) == hashval) {
+                isFound = true;
+                break;
+            }
+        if (isFound) {
+            cout <<"Found here" <<endl;
+            reply.assign(sockobj.get_own_ip() + '\n' + std::to_string(ROOT_PORT));
+            sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
+        } else {
+            cout <<"Sent to successor" <<endl;
+            sockobj.send_udp_string(std::get<0>(successor), std::get<1>(successor), '/' + filename + '\n' + ip_client);
+        }
     } else {
+        cout <<"Not found" <<endl;
         reply.assign("Not found");
+        sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
     }
-    sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
+}
+
+void Node::process_file_query(string filename) {
+    // if not root node
+    std::size_t pos = filename.find_first_of('\n');
+    string temp = filename.substr(0, pos);
+    string ip_client = filename.substr(pos+1);
+    filename.assign(temp);
+
+    std::size_t hashval = hash_fn(filename);
+    cout <<"Forwarded query for : " <<filename <<":" <<hashval <<endl;
+    bool isFound = false;
+    for (int i = 0; i < keys.size(); i++)
+        if (std::get<0>(keys[i]) == hashval) {
+            isFound = true;
+            break;
+        }
+    Socket sockobj;
+    if (isFound) {
+        cout <<"Found here" <<endl;
+        string reply;
+        reply.assign('|' + sockobj.get_own_ip() + '\n' + std::to_string(ROOT_PORT)
+            + '\n' + ip_client);
+        sockobj.send_udp_string(std::get<0>(successor),
+            std::get<1>(successor), reply);
+    } else {
+        cout <<"Sent to successor" <<endl;
+        sockobj.send_udp_string(std::get<0>(successor), std::get<1>(successor), '/' + filename);
+    }
+    // end of non-root node
+}
+
+void Node::process_query_result(string message) {
+    cout <<"Process result - ";
+    Socket sockobj;
+
+    if (node_count == 0) {
+        cout <<"root" <<endl;
+        std::size_t pos = message.find_first_of('\n');
+        string ip_res = message.substr(0, pos);
+        string temp = message.substr(pos+1);
+        message.assign(temp);
+
+        pos = message.find_first_of('\n');
+        string port_res = message.substr(0, pos);
+        string ip_client = message.substr(pos+1);
+
+        string reply(ip_res + '\n' + port_res);
+        sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
+    } else {
+        cout <<"non-root" <<endl;
+        sockobj.send_udp_string(std::get<0>(successor), std::get<1>(successor), '|' + message);
+    }
 }
 
 void Node::process_new_node(string filenames, string ip_node) {
@@ -609,26 +648,29 @@ void Node::print_stats(bool printRootStats, bool printNodeStats) {
     }
 }
 
-void Node::stabilize() {
+Node* Node::getpointer_to_node(std::size_t node_id, Node* startptr) {
     // TODO
-    // std::vector<std::tuple<std::size_t, string, string> >keys_temp =
-    //     successor->clear_keys();
-    // for (int i = 0; i < keys_temp.size(); i++) {
-    //     if (std::get<0>(keys_temp[i]) < id)
-    //         add_key(keys_temp[i]);
-    //     else
-    //         successor->add_key(keys_temp[i]);
+    // base condition
+    // cout <<"Finding pointer" <<endl;
+    // if (this == startptr) {
+    //     return startptr;
+    // } else if (this->id == node_id) {
+    //     cout <<"2nd" <<endl;
+    //     return this;
+    // } else {
+    //     cout <<"3rd" <<endl;
+    //     return successor->getpointer_to_node(node_count, startptr);
     // }
 }
 
-std::vector<std::tuple<std::size_t, string, string> > Node::clear_keys() {
-    std::vector<std::tuple<std::size_t, string, string> > keys_copy = keys;
-    keys.clear();
-    return keys_copy;
-}
-
-void Node::add_key(std::tuple<std::size_t, string, string> key) {
-    keys.push_back(key);
+std::pair<std::string, std::string> Node::get_file_owner(std::size_t hashval) {
+    // if (this == startptr)
+    //     return make_pair("Not", "found");
+    // for (int i = 0; i < keys.size(); i++) {
+    //     if (std::get<0>(keys) == hashval)
+    //         return make_pair(std::get<1>(keys), std::get<2>(keys));
+    // }
+    // return make_pair("Not", "found");
 }
 
 #endif  // NODE_H

@@ -75,7 +75,7 @@ int main(int argc, char const *argv[]) {
             port_res.assign(reply.substr(pos+1));
 
             // connect and send filename
-            sockfd = sockobj.getsocket(ip_root, port_root, false, true, false,
+            sockfd = sockobj.getsocket(ip_res, port_res, false, true, false,
                     true);
             sockobj.send_tcp_string(sockfd, filename);
             // download file
