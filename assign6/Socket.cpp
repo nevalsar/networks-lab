@@ -58,6 +58,7 @@ class Socket{
     void send_udp_string(string, string, string);
     void send_tcp_string(int, string);
     string receive_udp_string(string);
+    string receive_udp_string(string, int);
     string receive_tcp_string(int);
     int getsocket(string, string, bool, bool, bool, bool);
     void send_tcp_file(int, string);
@@ -188,7 +189,6 @@ void Socket::send_tcp_string(int tcp_socket, std::string reply) {
 std::string Socket::receive_udp_string(std::string port) {
     int sockfd, numbytes;
     sockfd = getsocket("", port, true, false, true, false);
-    // Socket new_connection;
     struct sockaddr_storage their_addr;
     socklen_t addr_len = sizeof their_addr;
     char buf[MAXDATASIZE];
@@ -208,7 +208,34 @@ std::string Socket::receive_udp_string(std::string port) {
 
     close(sockfd);
     buf[numbytes] = '\0';
-    reply.assign(port + '\n' + buf);
+    reply.assign(buf);
+    std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
+        <<std::endl;
+    return reply;
+}
+
+std::string Socket::receive_udp_string(std::string port, int sockfd) {
+    int numbytes;
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len = sizeof their_addr;
+    char buf[MAXDATASIZE];
+    char ipv4addr[INET_ADDRSTRLEN];
+    std::string reply;
+
+    std::cout <<"Waiting at port " <<port.c_str() <<std::endl;
+
+    if ((numbytes = recvfrom(sockfd, buf, MAXDATASIZE-1 , 0,
+        (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        perror("socket - receive_udp_string - recvfrom");
+        exit(1);
+    }
+
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr),
+        ipv4addr, sizeof ipv4addr);
+
+    close(sockfd);
+    buf[numbytes] = '\0';
+    reply.assign(buf);
     std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
         <<std::endl;
     return reply;

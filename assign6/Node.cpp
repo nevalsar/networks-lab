@@ -51,10 +51,20 @@ void error(const char* msg) {
 
 std::vector<string> getfiles(string);
 
+bool compare(std::tuple<string, string, std::size_t> first,
+    std::tuple<string, string, std::size_t> second) {
+    return (std::get<2>(first) < std::get<2>(second));
+}
+
+bool compare2(std::tuple<std::size_t, string, string> first,
+    std::tuple<std::size_t, string, string> second) {
+    return (std::get<0>(first) < std::get<0>(second));
+}
+
 class Node{
     // root variables
-    std::vector<std::size_t> nodes;
-    std::vector<std::size_t> keys_all;
+    std::vector<std::tuple<string, string, std::size_t> > nodes;
+    std::vector<std::tuple<std::size_t, string, string> > keys_all;
 
     // keys - hash, ip, port
     std::vector<std::tuple<std::size_t, string, string> > keys;
@@ -81,19 +91,21 @@ class Node{
     std::tuple<string, string, std::size_t> successor;
     Node(int);
     ~Node();
-    void setup_sockets(bool);
+    void setup_sockets();
     void send_files_list(std::vector<string>);
     void rootlistener();
     void process_root_udp_connection();
     void process_file_query(string, string);
     std::pair<string, string> get_file_owner(std::size_t);
     void process_new_node(string, string);
+    void print_stats(bool, bool);
     Node* getpointer_to_node(std::size_t, Node*);
     void stabilize();
     void add_key(std::tuple<std::size_t, string, string>);
     std::vector<std::tuple<std::size_t, string, string> > clear_keys();
     void nodelistener();
     void send_requested_file();
+    void update_node_data();
 };
 
 Node::Node(int n) {
@@ -117,20 +129,23 @@ Node::Node(int n) {
         size_t hashval = hash_fn(files_strings[i]);
         files.push_back(make_pair(hashval, files_strings[i]));
         if (node_count == 0)
-            keys_all.push_back(hashval);
+            keys_all.push_back(make_tuple(hashval, ip, port));
     }
 
     // set up listener sockets
     if (node_count == 0)
-        setup_sockets(true);
+        setup_sockets();
     else
-        setup_sockets(false);
+        setup_sockets();
 
     // if root node
     if (node_count == 0) {
         // initialize successor value, nodes vector
+        keys.clear();
+        for (int i = 0; i < keys_all.size(); i++)
+            keys.push_back(keys_all[i]);
         successor = make_tuple(ip, port, id);
-        nodes.push_back(id);
+        nodes.push_back(make_tuple(ip, port, id));
         cout <<"Adding files :" <<endl;
         for (int i = 0; i < files_strings.size(); ++i) {
             cout <<files_strings[i] <<endl;
@@ -143,7 +158,6 @@ Node::Node(int n) {
     } else {
         // send files to root
         send_files_list(files_strings);
-        cout <<"Listening for file requests.." <<endl;
         // listen for incoming connections
         while (true)
             nodelistener();
@@ -155,6 +169,7 @@ void Node::nodelistener() {
     while (true) {
         tempreadfds = readfds;
         // wait for incoming connection
+        cout <<"Listening for file requests.." <<endl;
         select(maxfd, &tempreadfds, NULL, NULL, NULL);
         // loop through to find which socket is ready
         for (int i = 0; i < maxfd; ++i) {
@@ -163,7 +178,7 @@ void Node::nodelistener() {
                     cout <<"New udp connection" <<endl;
                     // incoming UDP connection
                     // TODO
-                    // update_node_info();
+                    update_node_data();
                 } else if (i == listen_tcp_sock) {
                     cout <<"Incoming file request" <<endl;
                     // incoming TCP connection
@@ -174,6 +189,33 @@ void Node::nodelistener() {
             }  // end if isset
         }  // end for
     }  // end listen loop
+}
+
+void Node::update_node_data() {
+    // Socket sockobj;
+    // string reply = sockobj.receive_udp_string(std::to_string(ROOT_PORT + node_count), listen_udp_sock);
+    int numbytes;
+    struct sockaddr_storage their_addr;
+    socklen_t addr_len = sizeof their_addr;
+    char buf[MAXDATASIZE];
+    char ipv4addr[INET_ADDRSTRLEN];
+    std::string reply;
+
+    std::cout <<"Waiting at port " <<port.c_str() <<std::endl;
+
+    if ((numbytes = recvfrom(listen_udp_sock, buf, MAXDATASIZE-1 , 0,
+        (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        perror("socket - receive_udp_string - recvfrom");
+        exit(1);
+    }
+
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr*)&their_addr),
+        ipv4addr, sizeof ipv4addr);
+
+    buf[numbytes] = '\0';
+    reply.assign(buf);
+    std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
+        <<std::endl;
 }
 
 void Node::rootlistener() {
@@ -261,15 +303,15 @@ void Node::send_files_list(std::vector<string> files) {
         files_buff = files_buff+files[i] + "\n";
     }
 
-    sockobj.send_udp_string(ip, port, files_buff);
+    sockobj.send_udp_string(ip, port, string(std::to_string(ROOT_PORT
+        + node_count) + "\n" + files_buff));
 
     cout <<"Node : Sent files list to root node @ " <<ip <<":" <<port <<endl;
     cout <<files_buff <<endl;
 }
 
-void Node::setup_sockets(bool isRootNode) {
+void Node::setup_sockets() {
     // TODO - overwriting parameter values
-    isRootNode = false;
     struct addrinfo hints, *res;
     int sockfd;
     Socket sockobj;
@@ -278,19 +320,14 @@ void Node::setup_sockets(bool isRootNode) {
 
     FD_ZERO(&readfds);
 
-    if (isRootNode) {
-        listen_udp_sock = sockobj.getsocket("", port, true, false, true, false);
-        maxfd = listen_udp_sock;
-        FD_SET(listen_udp_sock, &readfds);
-        cout <<"Listening on " <<ip <<":" <<port <<endl;
-    }
+    listen_udp_sock = sockobj.getsocket("", port, true, false, true, false);
+    maxfd = listen_udp_sock;
+    FD_SET(listen_udp_sock, &readfds);
+    cout <<"Listening on " <<ip <<":" <<port <<endl;
 
     // listen for incoming TCP download requests
     listen_tcp_sock = sockobj.getsocket("", port, false, false, true, false);
-    if (isRootNode)
-        maxfd = listen_tcp_sock;
-    else
-        maxfd = (listen_tcp_sock > maxfd)? listen_tcp_sock: maxfd;
+    maxfd = (listen_tcp_sock > maxfd)? listen_tcp_sock: maxfd;
     if (listen(listen_tcp_sock, BACKLOG) == -1) {
         perror("listen");
         exit(1);
@@ -401,12 +438,15 @@ void Node::process_new_node(string filenames, string ip_node) {
     temp = filenames.substr(pos+1);
     filenames.assign(temp);
 
+    cout <<"New node from " <<ip_node <<":" <<port_node <<endl;
+
     cout <<"Adding files :" <<endl;
+    cout <<"------------------" <<endl;
     while (filenames.size() > 0) {
         pos = filenames.find_first_of('\n');
         string file;
         file.assign(filenames.substr(0, pos));
-        keys_all.push_back(hash_fn(file));
+        keys_all.push_back(make_tuple(hash_fn(file), ip_node, port_node));
         cout <<file <<endl;
         temp = filenames.substr(pos+1);
         filenames.assign(temp);
@@ -415,62 +455,103 @@ void Node::process_new_node(string filenames, string ip_node) {
 
     // add new hash to node_keys
     hash_node = hash_fn(ip_node + ":" + port_node);
-    nodes.push_back(hash_node);
+    nodes.push_back(make_tuple(ip_node, port_node, hash_node));
     cout <<"Inserting new node : " <<hash_fn(ip_node + ":" + port_node) <<endl;
-    // sort ascending
-    std::sort(nodes.begin(), nodes.end());
 
-    // print node stats and ids
-    cout <<"Sorted, size = " <<nodes.size() <<endl;
-    cout <<"Nodes are:" <<endl;
-    for (int i=0; i< nodes.size(); i++)
-        cout <<nodes[i] <<endl;
-    cout <<endl;
+    print_stats(true, false);
 
     // TODO
-    for (int i = 0; i < nodes.size(); ++i) {
-        if (nodes[i] == hash_node) {
-            if (i-1 < 0) {
-                // cout <<nodes[nodes.size() - 1] <<" -> " <<nodes[i] <<endl;
-                // cout <<getpointer_to_node(nodes[nodes.size() - 1], this)->id <<":" <<getpointer_to_node(nodes[i], this)->id <<endl;
+    // regenerate key list for each node
+    std::sort(nodes.begin(), nodes.end(), compare);
+    std::sort(keys_all.begin(), keys_all.end(), compare2);
 
-                // getpointer_to_node(nodes[nodes.size() - 1], this)->successor =
-                //     getpointer_to_node(nodes[i], this);
-
-                // cout <<nodes[i] <<" -> " <<nodes[i + 1] <<endl;
-                // cout <<getpointer_to_node(nodes[i], this)->id <<":" <<getpointer_to_node(nodes[i+1], this)->id <<endl;
-
-                // getpointer_to_node(nodes[i], this)->successor =
-                //     getpointer_to_node(nodes[i + 1], this);
-            } else if (i+1 == nodes.size()) {
-                // cout <<nodes[i] <<" -> " <<nodes[0] <<endl;
-                // cout <<getpointer_to_node(nodes[i], this)->id <<":" <<getpointer_to_node(nodes[0], this)->id <<endl;
-
-                // getpointer_to_node(nodes[i], this)->successor =
-                //     getpointer_to_node(nodes[0], this);
-
-                // cout <<nodes[i - 1] <<" -> " <<nodes[i] <<endl;
-                // cout <<getpointer_to_node(nodes[i-1], this)->id <<":" <<getpointer_to_node(nodes[i], this)->id <<endl;
-
-                // getpointer_to_node(nodes[i-1], this)->successor =
-                //     getpointer_to_node(nodes[i], this);
-            } else {
-                // cout <<nodes[i] <<" -> " <<nodes[i + 1] <<endl;
-                // cout <<getpointer_to_node(nodes[i], this)->id <<":" <<getpointer_to_node(nodes[i+1], this)->id <<endl;
-
-                // getpointer_to_node(nodes[i], this)->successor =
-                //     getpointer_to_node(nodes[i+1], this);
-
-                // cout <<nodes[i - 1] <<" -> " <<nodes[i] <<endl;
-                // cout <<getpointer_to_node(nodes[i-1], this)->id <<":" <<getpointer_to_node(nodes[i], this)->id <<endl;
-
-                // getpointer_to_node(nodes[i-1], this)->successor =
-                //     getpointer_to_node(nodes[i], this);
+    std::vector<std::vector<int> > map_file_to_node(nodes.size());
+    for (int i = 0; i < keys_all.size(); i++) {
+        for (int j = 0; j < nodes.size(); j++) {
+            std::size_t file_id = std::get<0>(keys_all[i]);
+            std::size_t node_id = std::get<2>(nodes[j]);
+            if (file_id < node_id) {
+                map_file_to_node[j].push_back(i);
+                break;
             }
-            // stabilise keys distribution across new node and successor
-            cout <<"Stabilize " <<nodes[i] <<endl;
-            // (getpointer_to_node(nodes[i], this))->stabilize();
         }
+        if(std::get<0>(keys_all[i]) > std::get<2>(nodes[nodes.size() - 1]))
+            map_file_to_node[0].push_back(i);
+    }
+
+    cout <<"Node file map" <<endl;
+    cout <<"-----------------------" <<endl;
+    for (int i = 0; i < map_file_to_node.size(); i++) {
+        cout <<std::get<2>(nodes[i]) <<" : " <<endl;
+        for (int j = 0; j < map_file_to_node[i].size(); j++)
+            cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
+        cout <<endl;
+    }
+    cout <<"-----------------------" <<endl;
+
+    // update successor and keys list for each node
+    for (int i = 0; i < map_file_to_node.size(); i++) {
+        if (std::get<2>(nodes[i]) == id) {
+            // if root node
+            successor = nodes[(i+1)%(nodes.size())];
+            keys.clear();
+            for (int j = 0; j < map_file_to_node[i].size(); j++)
+                keys.push_back(keys_all[map_file_to_node[i][j]]);
+
+        } else {
+            // if not root node
+            string updated_data;
+            // append successor value
+            std::tuple<string, string, std::size_t> temp = nodes[(i+1)%(nodes.size())];
+            updated_data.append(std::get<0>(temp));
+            updated_data.push_back('\n');
+            updated_data.append(std::get<1>(temp));
+            updated_data.push_back('\n');
+            updated_data.append(std::to_string(std::get<2>(temp)));
+            // append updated keys list
+            for (int j = 0; j < map_file_to_node[i].size(); j++) {
+                updated_data.push_back('\n');
+                updated_data.append(std::to_string(std::get<0>(keys_all[map_file_to_node[i][j]])));
+                updated_data.push_back('\n');
+                updated_data.append(std::get<1>(keys_all[map_file_to_node[i][j]]));
+                updated_data.push_back('\n');
+                updated_data.append(std::get<2>(keys_all[map_file_to_node[i][j]]));
+            }
+            // send new keys list to each node
+            Socket sockobj;
+            sockobj.send_udp_string(std::get<0>(nodes[i]), std::get<1>(nodes[i]), updated_data);
+        }
+    }
+}
+
+void Node::print_stats(bool printRootStats, bool printNodeStats) {
+    if (printRootStats) {
+        // print nodes
+        std::sort(nodes.begin(), nodes.end(), compare);
+        cout <<"Sorted node list:" <<endl;
+        cout <<"------------------" <<endl;
+        for (int i=0; i< nodes.size(); i++)
+            cout <<i+1 <<") " <<std::get<2>(nodes[i]) <<endl;
+        cout <<"------------------" <<endl;
+
+        // print all keys
+        std::sort(keys_all.begin(), keys_all.end(), compare2);
+        cout<<"Sorted files list" <<endl;
+        cout <<"------------------" <<endl;
+        for (int i = 0; i< keys_all.size(); i++)
+            cout <<i+1 <<" - " <<std::get<0>(keys_all[i]) <<"-" <<std::get<1>(keys_all[i])
+                <<":" <<std::get<2>(keys_all[i]) <<endl;
+        cout <<"------------------" <<endl;
+    }
+    if (printNodeStats) {
+        // print all keys
+        std::sort(keys.begin(), keys.end(), compare2);
+        cout<<"Sorted files list" <<endl;
+        cout <<"------------------" <<endl;
+        for (int i = 0; i< keys.size(); i++)
+            cout <<i+1 <<" - " <<std::get<0>(keys[i]) <<"-" <<std::get<1>(keys[i])
+                <<":" <<std::get<2>(keys[i]) <<endl;
+        cout <<"------------------" <<endl;
     }
 }
 
