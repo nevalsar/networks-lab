@@ -1,5 +1,5 @@
 run: master client
-	./master 0
+	./master 127.0.0.1 0
 
 master:	master.cpp Node.o Socket.o
 	g++ -std=c++11 -o master master.cpp

@@ -44,6 +44,8 @@ using std::string;
 using std::cout;
 using std::endl;
 
+string root_server_ip;
+
 void error(const char* msg) {
     perror(msg);
     exit(1);
@@ -89,7 +91,7 @@ class Node{
  public:
     // successor - tuple of ip, port, hash values
     std::tuple<string, string, std::size_t> successor;
-    Node(int);
+    Node(string, int);
     ~Node();
     void setup_sockets();
     void rootlistener();
@@ -106,17 +108,31 @@ class Node{
     void process_root_file_query(string, string);
     void process_file_query(string);
     void process_query_result(string);
+    void deinit_node();
+    void reallocate_keys_to_nodes();
+    void process_dying_node(string, string);
 };
 
-Node::Node(int n) {
+Node* pointer;
+
+void sigint_handler(int sig) {
+    write(0, "Caught SIGINT, exiting\n", 23);
+    pointer->deinit_node();
+    exit(0);
+}
+
+Node::Node(string temp_string, int n) {
+    root_server_ip = temp_string;
+    pointer = this;
     node_count = n;
+
     Socket sockobj;
     // get own ip and port, generate own id / hash value
     ip.assign(sockobj.get_own_ip());
     port.assign(std::to_string(ROOT_PORT + node_count));
     string temp(ip + ":" + port);
-    cout <<"Start node : " <<temp <<endl;
     id = hash_fn(temp);
+    cout <<"Start node : " <<id <<":" <<temp <<endl;
     successor = std::make_tuple("", "", 0);
 
     // get own file list, populate files vector
@@ -137,6 +153,17 @@ Node::Node(int n) {
         setup_sockets();
     else
         setup_sockets();
+
+    // setup signal handlers for SIGINT
+    struct sigaction sa;
+    sa.sa_handler = sigint_handler;
+    sa.sa_flags = 0;
+    sigemptyset(&sa.sa_mask);
+
+    if(sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction - sigint_handler");
+        exit(1);
+    }
 
     // if root node
     if (node_count == 0) {
@@ -312,7 +339,7 @@ std::vector<string> getfiles(string directory) {
 
 void Node::send_files_list(std::vector<string> files) {
     Socket sockobj;
-    string ip("127.0.0.1");
+    string ip(root_server_ip.c_str());
     string port(std::to_string(ROOT_PORT));
 
     string files_buff = "";
@@ -428,6 +455,8 @@ void Node::process_udp_connection() {
     } else if (((pos = message.find_first_of('|')) == 0)) {
         // handle forward query result
         process_query_result(message.substr(pos+1));
+    } else if (((pos = message.find_first_of('\\')) == 0)) {
+        process_dying_node(message.substr(pos+1), string(s));
     } else {
         if (node_count == 0)
             // a new node is joining
@@ -550,7 +579,7 @@ void Node::process_new_node(string filenames, string ip_node) {
         string file;
         file.assign(filenames.substr(0, pos));
         keys_all.push_back(make_tuple(hash_fn(file), ip_node, port_node));
-        cout <<file <<endl;
+        cout <<file <<" - " <<hash_fn(file) <<endl;
         temp = filenames.substr(pos+1);
         filenames.assign(temp);
     }
@@ -561,10 +590,15 @@ void Node::process_new_node(string filenames, string ip_node) {
     nodes.push_back(make_tuple(ip_node, port_node, hash_node));
     cout <<"Inserting new node : " <<hash_fn(ip_node + ":" + port_node) <<endl;
 
-    print_stats(true, false);
+    // print_stats(true, false);
 
     // TODO
     // regenerate key list for each node
+
+    reallocate_keys_to_nodes();
+}
+
+void Node::reallocate_keys_to_nodes() {
     std::sort(nodes.begin(), nodes.end(), compare);
     std::sort(keys_all.begin(), keys_all.end(), compare2);
 
@@ -682,6 +716,49 @@ std::pair<std::string, std::string> Node::get_file_owner(std::size_t hashval) {
     //         return make_pair(std::get<1>(keys), std::get<2>(keys));
     // }
     // return make_pair("Not", "found");
+}
+
+void Node::deinit_node() {
+    if (node_count == 0) {
+        cout <<"Root node is now (dead and) buried." <<endl;
+    } else {
+        Socket sockobj;
+        cout <<"Sending final wishes to root node" <<endl;
+        sockobj.send_udp_string(root_server_ip.c_str(), std::to_string(ROOT_PORT), '\\'
+            + std::to_string(ROOT_PORT + node_count));
+        cout <<"Sent : " <<string('\\'+ std::to_string(id)) <<endl;
+    }
+}
+
+void Node::process_dying_node(string port_leaving, string ip_leaving) {
+    int i;
+    std::size_t hashval = hash_fn(ip_leaving + ":" + port_leaving);
+    for (i = 0; i< nodes.size(); i++) {
+        if (std::get<2>(nodes[i]) == hashval) {
+            ip_leaving.assign(std::get<0>(nodes[i]));
+            port_leaving.assign(std::get<1>(nodes[i]));
+            break;
+        }
+    }
+    cout <<"Node dying : " <<hashval <<":" <<ip_leaving <<":" <<port_leaving
+        <<endl;
+    nodes.erase(nodes.begin() + i);
+
+    int count_delete = 0;
+    int size = keys_all.size();
+    for (int i = 0; i < size - count_delete;) {
+        if (std::get<1>(keys_all[i]) == ip_leaving &&
+            std::get<2>(keys_all[i]) == port_leaving) {
+            // delete this entry
+            ++count_delete;
+            keys_all[i] = keys_all.back();
+            keys_all.pop_back();
+        } else {
+            i++;
+        }
+    }
+
+    reallocate_keys_to_nodes();
 }
 
 #endif  // NODE_H

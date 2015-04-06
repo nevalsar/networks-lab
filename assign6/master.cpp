@@ -19,8 +19,8 @@ int main(int argc, char const *argv[]) {
     // std::cout <<"Enter node count: ";
     // std::cin>> number_of_nodes;
     // std::cout <<"Init " <<number_of_nodes <<" nodes" <<std::endl;
-    if (argc < 2) {
-        std::cout <<"Usage: master node_count" <<std::endl;
+    if (argc < 3) {
+        std::cout <<"Usage: master root_ip node_count" <<std::endl;
         exit(1);
     }
     // size_t pid = getpid();
@@ -32,6 +32,6 @@ int main(int argc, char const *argv[]) {
     //         strcpy(arg[1], std::to_string(i));
     //         execvp("./client.o", arg);
     //     }
-    Node noobj(std::atoi(argv[1]));
+    Node noobj(argv[1], std::atoi(argv[2]));
     return 0;
 }
