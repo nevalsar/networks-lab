@@ -103,8 +103,6 @@ class Node{
     void update_node_data(string);
     void send_requested_file();
     void print_stats(bool, bool);
-    std::pair<string, string> get_file_owner(std::size_t);
-    Node* getpointer_to_node(std::size_t, Node*);
     void process_root_file_query(string, string);
     void process_file_query(string);
     void process_query_result(string);
@@ -204,7 +202,6 @@ void Node::nodelistener() {
                 if (i == listen_udp_sock) {
                     cout <<"New udp connection" <<endl;
                     // incoming UDP connection
-                    // TODO
                     process_udp_connection();
                 } else if (i == listen_tcp_sock) {
                     cout <<"Incoming file request" <<endl;
@@ -355,7 +352,6 @@ void Node::send_files_list(std::vector<string> files) {
 }
 
 void Node::setup_sockets() {
-    // TODO - overwriting parameter values
     struct addrinfo hints, *res;
     int sockfd;
     Socket sockobj;
@@ -468,7 +464,6 @@ void Node::process_udp_connection() {
 }
 
 void Node::process_root_file_query(string filename, string ip_client) {
-    // TODO
     // search for filename in chord ring
     Socket sockobj;
     string reply;
@@ -592,7 +587,6 @@ void Node::process_new_node(string filenames, string ip_node) {
 
     // print_stats(true, false);
 
-    // TODO
     // regenerate key list for each node
 
     reallocate_keys_to_nodes();
@@ -691,31 +685,6 @@ void Node::print_stats(bool printRootStats, bool printNodeStats) {
                 <<":" <<std::get<2>(keys[i]) <<endl;
         cout <<"------------------" <<endl;
     }
-}
-
-Node* Node::getpointer_to_node(std::size_t node_id, Node* startptr) {
-    // TODO
-    // base condition
-    // cout <<"Finding pointer" <<endl;
-    // if (this == startptr) {
-    //     return startptr;
-    // } else if (this->id == node_id) {
-    //     cout <<"2nd" <<endl;
-    //     return this;
-    // } else {
-    //     cout <<"3rd" <<endl;
-    //     return successor->getpointer_to_node(node_count, startptr);
-    // }
-}
-
-std::pair<std::string, std::string> Node::get_file_owner(std::size_t hashval) {
-    // if (this == startptr)
-    //     return make_pair("Not", "found");
-    // for (int i = 0; i < keys.size(); i++) {
-    //     if (std::get<0>(keys) == hashval)
-    //         return make_pair(std::get<1>(keys), std::get<2>(keys));
-    // }
-    // return make_pair("Not", "found");
 }
 
 void Node::deinit_node() {
