@@ -1,5 +1,5 @@
 /**********************************
-Assignment 7
+Assignment 6
 CS39006 Computer Networks Lab
 Submitted by:
     NEVIN VALSARAJ 12CS10032
@@ -15,10 +15,23 @@ Submitted by:
 #include "Node.cpp"
 
 int main(int argc, char const *argv[]) {
+    // int number_of_nodes;
+    // std::cout <<"Enter node count: ";
+    // std::cin>> number_of_nodes;
+    // std::cout <<"Init " <<number_of_nodes <<" nodes" <<std::endl;
     if (argc < 3) {
         std::cout <<"Usage: master root_ip node_count" <<std::endl;
         exit(1);
     }
-    Node node_obj(argv[1], std::atoi(argv[2]));
+    // size_t pid = getpid();
+    // for (int i = 0; i < atoi(argv[1]); i++)
+    //     if(pid != 0){
+    //         size_t tempid = fork();
+    //         char arg[11][11];
+    //         strcpy(arg[0], "./client.o");
+    //         strcpy(arg[1], std::to_string(i));
+    //         execvp("./client.o", arg);
+    //     }
+    Node noobj(argv[1], std::atoi(argv[2]));
     return 0;
 }

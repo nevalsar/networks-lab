@@ -1,5 +1,5 @@
 /**********************************
-Assignment 6
+Assignment 7
 CS39006 Computer Networks Lab
 Submitted by:
     NEVIN VALSARAJ 12CS10032
