@@ -36,7 +36,7 @@ Submitted by:
 #define NODE_H
 
 #define EQUAL(X, Y) (strcmp(X, Y) == 0?1:0)
-#define ROOT_PORT 11000
+#define ROOT_PORT 9000
 #define CLIENT_PORT 12000
 #define BACKLOG 10
 
@@ -86,8 +86,8 @@ class Node{
     fd_set readfds;
     int maxfd;
 
-    std::hash<string> hash_fn;
-
+    // std::hash<string> hash_fn;
+    unsigned long long hash_fn(string);
  public:
     // finger table - vector of tuple of ip, port, hash values
     std::vector<std::tuple<string, string, std::size_t> > fingers;
@@ -116,6 +116,21 @@ void sigint_handler(int sig) {
     write(0, "Caught SIGINT, exiting\n", 23);
     pointer->deinit_node();
     exit(0);
+}
+
+unsigned long long Node::hash_fn(string p) {
+    int len = p.size();
+    unsigned long long h = 0;
+    int i;
+    for (i = 0; i < len; i++) {
+        h += p[i];
+        h += (h << 10);
+        h ^= (h >> 6);
+    }
+    h += (h << 3);
+    h ^= (h >> 11);
+    h += (h << 15);
+    return h;
 }
 
 Node::Node(string temp_string, int n) {
@@ -225,7 +240,7 @@ void Node::update_node_data(string reply) {
 
     fingers.clear();
 
-    cout <<"New finger table" <<endl;
+    cout <<"New finger table for node :" <<node_count <<endl;
     cout <<"------------------" <<endl;
     for (int j = 0; j < count_fingers; j++) {
         std::tuple<string, string, std::size_t> finger_elt;
@@ -251,8 +266,7 @@ void Node::update_node_data(string reply) {
         reply.assign(temp);
 
         fingers.push_back(finger_elt);
-        cout <<std::get<0>(finger_elt) <<":" <<std::get<1>(finger_elt) <<":"
-            <<std::get<2>(finger_elt) <<endl;
+        cout <<std::get<2>(finger_elt) % 8 <<endl;
     }
     cout <<"------------------" <<endl;
 
@@ -617,23 +631,21 @@ void Node::reallocate_keys_to_nodes() {
             map_file_to_node[0].push_back(i);
     }
 
-    cout <<"Node file map" <<endl;
-    cout <<"-----------------------" <<endl;
-    for (int i = 0; i < map_file_to_node.size(); i++) {
-        cout <<std::get<2>(nodes[i]) <<" : " <<endl;
-        for (int j = 0; j < map_file_to_node[i].size(); j++)
-            cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
-        cout <<endl;
-    }
-    cout <<"-----------------------" <<endl;
+    // cout <<"Node file map" <<endl;
+    // cout <<"-----------------------" <<endl;
+    // for (int i = 0; i < map_file_to_node.size(); i++) {
+    //     cout <<std::get<2>(nodes[i]) <<" : " <<endl;
+    //     for (int j = 0; j < map_file_to_node[i].size(); j++)
+    //         cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
+    //     cout <<endl;
+    // }
+    // cout <<"-----------------------" <<endl;
 
     // generate finger table
 
     std::vector<std::vector<int> > node_fingers(nodes.size());
     // compute finger table size
-    cout <<"Finger table" <<endl;
     int table_size = log(nodes.size()) / log(2);
-    cout <<"Table size : " <<table_size <<endl;
     // std::size_t max_node_count = pow(2, 64);
     // populate finger table
     for (int i = 0; i < nodes.size(); i++) {
@@ -643,16 +655,15 @@ void Node::reallocate_keys_to_nodes() {
             node_fingers[i].push_back(next%nodes.size());
         }
     }
-
-    cout <<"-----------------------" <<endl;
-    for (int i = 0; i < node_fingers.size(); i++) {
-        cout <<std::get<2>(nodes[i]) <<" - ";
-        for (int j = 0; j< node_fingers[i].size(); j++) {
-            cout <<std::get<2>(nodes[node_fingers[i][j]]) <<", ";
-        }
-        cout <<endl;
-    }
-    cout <<"-----------------------" <<endl;
+    // cout <<"New finger table" <<endl;
+    // cout <<"-----------------------" <<endl;
+    // for (int i = 0; i < node_fingers.size(); i++) {
+    //     cout <<std::get<2>(nodes[i]) <<" - ";
+    //     for (int j = 0; j< node_fingers[i].size(); j++) {
+    //         cout <<std::get<2>(nodes[node_fingers[i][j]]) <<", ";
+    //     }
+    //     cout <<endl;
+    // }
 
     // update finger table and keys list for each node
     for (int i = 0; i < nodes.size(); i++) {
@@ -699,6 +710,13 @@ void Node::reallocate_keys_to_nodes() {
                 std::get<1>(nodes[i]), updated_data);
         }
     }
+    cout <<"-----------------------" <<endl;
+    cout <<"New finger table for node : " <<node_count <<endl;
+    cout <<"-----------------------" <<endl;
+    for (int i = 0; i < fingers.size(); i++) {
+        cout <<std::get<2>(fingers[i]) % 8 <<endl;
+    }
+    cout <<"-----------------------" <<endl;
 }
 
 void Node::print_stats(bool printRootStats, bool printNodeStats) {

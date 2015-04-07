@@ -14,7 +14,7 @@ Submitted by:
 
 #include "Socket.cpp"
 
-#define ROOT_PORT 11000
+#define ROOT_PORT 9000
 #define CLIENT_PORT 12000
 
 using std::cout;
