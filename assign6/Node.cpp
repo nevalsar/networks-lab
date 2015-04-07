@@ -1,5 +1,5 @@
 /**********************************
-Assignment 6
+Assignment 7
 CS39006 Computer Networks Lab
 Submitted by:
     NEVIN VALSARAJ 12CS10032
@@ -94,9 +94,8 @@ class Node{
     Node(string, int);
     ~Node();
     void setup_sockets();
-    void rootlistener();
+    void listener();
     void send_files_list(std::vector<string>);
-    void nodelistener();
     void process_udp_connection();
     void process_file_query(string, string);
     void process_new_node(string, string);
@@ -147,10 +146,7 @@ Node::Node(string temp_string, int n) {
     }
 
     // set up listener sockets
-    if (node_count == 0)
-        setup_sockets();
-    else
-        setup_sockets();
+    setup_sockets();
 
     // setup signal handlers for SIGINT
     struct sigaction sa;
@@ -158,7 +154,7 @@ Node::Node(string temp_string, int n) {
     sa.sa_flags = 0;
     sigemptyset(&sa.sa_mask);
 
-    if(sigaction(SIGINT, &sa, NULL) == -1) {
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
         perror("sigaction - sigint_handler");
         exit(1);
     }
@@ -171,25 +167,24 @@ Node::Node(string temp_string, int n) {
             keys.push_back(keys_all[i]);
         fingers.push_back(make_tuple(ip, port, id));
         nodes.push_back(make_tuple(ip, port, id));
+
+        // print added files
         cout <<"Adding files :" <<endl;
         for (int i = 0; i < files_strings.size(); ++i) {
             cout <<files_strings[i] <<endl;
         }
         cout <<"---------------" <<endl;
-        // listen for incoming connections
-        while (true)
-            rootlistener();
-
     } else {
         // send files to root
         send_files_list(files_strings);
-        // listen for incoming connections
-        while (true)
-            nodelistener();
     }
+
+    // listen for incoming connections
+    while (true)
+        listener();
 }
 
-void Node::nodelistener() {
+void Node::listener() {
     fd_set tempreadfds;
     while (true) {
         tempreadfds = readfds;
@@ -216,9 +211,6 @@ void Node::nodelistener() {
 }
 
 void Node::update_node_data(string reply) {
-    // Socket sockobj;
-    // string reply = sockobj.receive_udp_string(std::to_string(ROOT_PORT + node_count), listen_udp_sock);
-
     std::cout <<"socket - receive_udp_string - Received UDP string : " <<reply
         <<std::endl;
 
@@ -250,7 +242,7 @@ void Node::update_node_data(string reply) {
         pos = reply.find_first_of('\n');
         string temp_str = reply.substr(0, pos);
         std::size_t temp_hash = 0;
-        for ( int k = 0; k < temp_str.size(); k++) {
+        for (int k = 0; k < temp_str.size(); k++) {
             temp_hash *= 10;
             temp_hash += (temp_str[k] - '0');
         }
@@ -273,7 +265,7 @@ void Node::update_node_data(string reply) {
         pos = reply.find_first_of('\n');
         string temp_str = reply.substr(0, pos);
         std::size_t temp_hash = 0;
-        for ( int k = 0; k < temp_str.size(); k++) {
+        for (int k = 0; k < temp_str.size(); k++) {
             temp_hash *= 10;
             temp_hash += (temp_str[k] - '0');
         }
@@ -296,32 +288,6 @@ void Node::update_node_data(string reply) {
             <<std::get<2>(temp_key) <<endl;
     }
     cout <<"------------------" <<endl;
-}
-
-void Node::rootlistener() {
-    fd_set tempreadfds;
-    while (true) {
-        tempreadfds = readfds;
-        // wait for incoming connection
-        cout <<endl <<"Waiting for incoming connections..." <<endl <<endl;
-        select(maxfd, &tempreadfds, NULL, NULL, NULL);
-        // loop through to find which socket is ready
-        for (int i = 0; i < maxfd; ++i) {
-            if (FD_ISSET(i, &readfds)) {
-                if (i == listen_udp_sock) {
-                    cout <<"New udp connection" <<endl;
-                    // incoming UDP connection
-                    process_udp_connection();
-                } else if (i == listen_tcp_sock) {
-                    cout <<"Incoming file request" <<endl;
-                    // incoming TCP connection
-                    send_requested_file();
-                } else {
-                    cout <<"I swear I heard some'in" <<endl;
-                }
-            }  // end if isset
-        }  // end for
-    }  // end listen loop
 }
 
 Node::~Node() {
@@ -500,8 +466,10 @@ void Node::process_root_file_query(string filename, string ip_client) {
             }
         if (isFound) {
             cout <<"Found here" <<endl;
-            reply.assign(sockobj.get_own_ip() + '\n' + std::to_string(ROOT_PORT));
-            sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
+            reply.assign(sockobj.get_own_ip() + '\n'
+                + std::to_string(ROOT_PORT));
+            sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT),
+                reply);
         } else {
             // find ideal finger and forward query
             sort(fingers.begin(), fingers.end(), compare);
@@ -511,11 +479,12 @@ void Node::process_root_file_query(string filename, string ip_client) {
                     break;
                 }
             }
-            if(j == -1)
+            if (j == -1)
                 j = fingers.size() - 1;
 
             cout <<"Forwarded query" <<endl;
-            sockobj.send_udp_string(std::get<0>(fingers[j]), std::get<1>(fingers[j]), '/' + filename + '\n' + ip_client);
+            sockobj.send_udp_string(std::get<0>(fingers[j]),
+                std::get<1>(fingers[j]), '/' + filename + '\n' + ip_client);
         }
     } else {
         cout <<"Not found" <<endl;
@@ -543,8 +512,8 @@ void Node::process_file_query(string filename) {
     if (isFound) {
         cout <<"Found here" <<endl;
         string reply;
-        reply.assign('|' + sockobj.get_own_ip() + '\n' + std::to_string(ROOT_PORT)
-            + '\n' + ip_client);
+        reply.assign('|' + sockobj.get_own_ip() + '\n'
+            + std::to_string(ROOT_PORT) + '\n' + ip_client);
         sockobj.send_udp_string(std::get<0>(fingers[0]),
             std::get<1>(fingers[0]), reply);
     } else {
@@ -556,11 +525,12 @@ void Node::process_file_query(string filename) {
                 break;
             }
         }
-        if(j == -1)
+        if (j == -1)
             j = fingers.size() - 1;
 
         cout <<"Sent forward" <<endl;
-        sockobj.send_udp_string(std::get<0>(fingers[j]), std::get<1>(fingers[j]), '/' + filename);
+        sockobj.send_udp_string(std::get<0>(fingers[j]),
+            std::get<1>(fingers[j]), '/' + filename);
     }
     // end of non-root node
 }
@@ -584,7 +554,8 @@ void Node::process_query_result(string message) {
         sockobj.send_udp_string(ip_client, std::to_string(CLIENT_PORT), reply);
     } else {
         cout <<"non-root" <<endl;
-        sockobj.send_udp_string(std::get<0>(fingers[0]), std::get<1>(fingers[0]), '|' + message);
+        sockobj.send_udp_string(std::get<0>(fingers[0]),
+            std::get<1>(fingers[0]), '|' + message);
     }
 }
 
@@ -642,7 +613,7 @@ void Node::reallocate_keys_to_nodes() {
                 break;
             }
         }
-        if(std::get<0>(keys_all[i]) > std::get<2>(nodes[nodes.size() - 1]))
+        if (std::get<0>(keys_all[i]) > std::get<2>(nodes[nodes.size() - 1]))
             map_file_to_node[0].push_back(i);
     }
 
@@ -705,22 +676,27 @@ void Node::reallocate_keys_to_nodes() {
                 updated_data.push_back('\n');
                 updated_data.append(std::get<1>(nodes[node_fingers[i][j]]));
                 updated_data.push_back('\n');
-                updated_data.append(std::to_string(std::get<2>(nodes[node_fingers[i][j]])));
+                updated_data.append(std::to_string(std::get<2>(nodes[
+                    node_fingers[i][j]])));
                 updated_data.push_back('\n');
             }
 
             // append updated keys list
             for (int j = 0; j < map_file_to_node[i].size(); j++) {
-                updated_data.append(std::to_string(std::get<0>(keys_all[map_file_to_node[i][j]])));
+                updated_data.append(std::to_string(std::get<0>(keys_all[
+                    map_file_to_node[i][j]])));
                 updated_data.push_back('\n');
-                updated_data.append(std::get<1>(keys_all[map_file_to_node[i][j]]));
+                updated_data.append(std::get<1>(keys_all[
+                    map_file_to_node[i][j]]));
                 updated_data.push_back('\n');
-                updated_data.append(std::get<2>(keys_all[map_file_to_node[i][j]]));
+                updated_data.append(std::get<2>(keys_all[
+                    map_file_to_node[i][j]]));
                 updated_data.push_back('\n');
             }
             // send new keys list to each node
             Socket sockobj;
-            sockobj.send_udp_string(std::get<0>(nodes[i]), std::get<1>(nodes[i]), updated_data);
+            sockobj.send_udp_string(std::get<0>(nodes[i]),
+                std::get<1>(nodes[i]), updated_data);
         }
     }
 }
@@ -737,21 +713,22 @@ void Node::print_stats(bool printRootStats, bool printNodeStats) {
 
         // print all keys
         std::sort(keys_all.begin(), keys_all.end(), compare2);
-        cout<<"Sorted files list" <<endl;
+        cout <<"Sorted files list" <<endl;
         cout <<"------------------" <<endl;
         for (int i = 0; i< keys_all.size(); i++)
-            cout <<i+1 <<" - " <<std::get<0>(keys_all[i]) <<"-" <<std::get<1>(keys_all[i])
-                <<":" <<std::get<2>(keys_all[i]) <<endl;
+            cout <<i+1 <<" - " <<std::get<0>(keys_all[i]) <<"-"
+                    <<std::get<1>(keys_all[i]) <<":" <<std::get<2>(keys_all[i])
+                    <<endl;
         cout <<"------------------" <<endl;
     }
     if (printNodeStats) {
         // print all keys
         std::sort(keys.begin(), keys.end(), compare2);
-        cout<<"Sorted files list" <<endl;
+        cout <<"Sorted files list" <<endl;
         cout <<"------------------" <<endl;
         for (int i = 0; i< keys.size(); i++)
-            cout <<i+1 <<" - " <<std::get<0>(keys[i]) <<"-" <<std::get<1>(keys[i])
-                <<":" <<std::get<2>(keys[i]) <<endl;
+            cout <<i+1 <<" - " <<std::get<0>(keys[i]) <<"-"
+                <<std::get<1>(keys[i]) <<":" <<std::get<2>(keys[i]) <<endl;
         cout <<"------------------" <<endl;
     }
 }
@@ -762,8 +739,9 @@ void Node::deinit_node() {
     } else {
         Socket sockobj;
         cout <<"Sending final wishes to root node" <<endl;
-        sockobj.send_udp_string(root_server_ip.c_str(), std::to_string(ROOT_PORT), '\\'
-            + std::to_string(ROOT_PORT + node_count));
+        sockobj.send_udp_string(root_server_ip.c_str(),
+            std::to_string(ROOT_PORT), '\\' + std::to_string(ROOT_PORT
+            + node_count));
         cout <<"Sent : " <<string('\\'+ std::to_string(id)) <<endl;
     }
 }
