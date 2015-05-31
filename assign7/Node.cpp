@@ -266,7 +266,7 @@ void Node::update_node_data(string reply) {
         reply.assign(temp);
 
         fingers.push_back(finger_elt);
-        cout <<std::get<2>(finger_elt) % 8 <<endl;
+        cout <<std::get<2>(finger_elt) <<endl;
     }
     cout <<"------------------" <<endl;
 
@@ -486,9 +486,9 @@ void Node::process_root_file_query(string filename, string ip_client) {
                 reply);
         } else {
             // find ideal finger and forward query
-            sort(fingers.begin(), fingers.end(), compare);
+            // sort(fingers.begin(), fingers.end(), compare);
             int j;
-            for (j = fingers.size() - 1; j >= 0; j++) {
+            for (j = fingers.size() - 1; j >= 0; j--) {
                 if (std::get<2>(fingers[j]) < hashval) {
                     break;
                 }
@@ -496,7 +496,7 @@ void Node::process_root_file_query(string filename, string ip_client) {
             if (j == -1)
                 j = fingers.size() - 1;
 
-            cout <<"Forwarded query" <<endl;
+            cout <<"Forwarded query : " <<std::get<2>(fingers[j]) <<endl;
             sockobj.send_udp_string(std::get<0>(fingers[j]),
                 std::get<1>(fingers[j]), '/' + filename + '\n' + ip_client);
         }
@@ -534,7 +534,7 @@ void Node::process_file_query(string filename) {
         // find ideal finger and forward query
         sort(fingers.begin(), fingers.end(), compare);
         int j;
-        for (j = fingers.size() - 1; j >= 0; j++) {
+        for (j = fingers.size() - 1; j >= 0; j--) {
             if (std::get<2>(fingers[j]) < hashval) {
                 break;
             }
@@ -631,15 +631,15 @@ void Node::reallocate_keys_to_nodes() {
             map_file_to_node[0].push_back(i);
     }
 
-    // cout <<"Node file map" <<endl;
-    // cout <<"-----------------------" <<endl;
-    // for (int i = 0; i < map_file_to_node.size(); i++) {
-    //     cout <<std::get<2>(nodes[i]) <<" : " <<endl;
-    //     for (int j = 0; j < map_file_to_node[i].size(); j++)
-    //         cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
-    //     cout <<endl;
-    // }
-    // cout <<"-----------------------" <<endl;
+    cout <<"Node file map" <<endl;
+    cout <<"-----------------------" <<endl;
+    for (int i = 0; i < map_file_to_node.size(); i++) {
+        cout <<std::get<2>(nodes[i]) <<" : " <<endl;
+        for (int j = 0; j < map_file_to_node[i].size(); j++)
+            cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
+        cout <<endl;
+    }
+    cout <<"-----------------------" <<endl;
 
     // generate finger table
 
@@ -655,15 +655,15 @@ void Node::reallocate_keys_to_nodes() {
             node_fingers[i].push_back(next%nodes.size());
         }
     }
-    // cout <<"New finger table" <<endl;
-    // cout <<"-----------------------" <<endl;
-    // for (int i = 0; i < node_fingers.size(); i++) {
-    //     cout <<std::get<2>(nodes[i]) <<" - ";
-    //     for (int j = 0; j< node_fingers[i].size(); j++) {
-    //         cout <<std::get<2>(nodes[node_fingers[i][j]]) <<", ";
-    //     }
-    //     cout <<endl;
-    // }
+    cout <<"New finger table" <<endl;
+    cout <<"-----------------------" <<endl;
+    for (int i = 0; i < node_fingers.size(); i++) {
+        cout <<std::get<2>(nodes[i]) <<" - ";
+        for (int j = 0; j< node_fingers[i].size(); j++) {
+            cout <<std::get<2>(nodes[node_fingers[i][j]]) <<", ";
+        }
+        cout <<endl;
+    }
 
     // update finger table and keys list for each node
     for (int i = 0; i < nodes.size(); i++) {
@@ -714,7 +714,7 @@ void Node::reallocate_keys_to_nodes() {
     cout <<"New finger table for node : " <<node_count <<endl;
     cout <<"-----------------------" <<endl;
     for (int i = 0; i < fingers.size(); i++) {
-        cout <<std::get<2>(fingers[i]) % 8 <<endl;
+        cout <<std::get<2>(fingers[i]) <<endl;
     }
     cout <<"-----------------------" <<endl;
 }

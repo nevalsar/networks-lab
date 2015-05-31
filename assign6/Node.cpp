@@ -86,7 +86,9 @@ class Node{
     fd_set readfds;
     int maxfd;
 
-    std::hash<string> hash_fn;
+    unsigned long long hash_fn(string);
+
+    // std::hash<string> hash_fn;
 
  public:
     // successor - tuple of ip, port, hash values
@@ -112,6 +114,21 @@ class Node{
 };
 
 Node* pointer;
+
+unsigned long long Node::hash_fn(string p) {
+    int len = p.size();
+    unsigned long long h = 0;
+    int i;
+    for (i = 0; i < len; i++) {
+        h += p[i];
+        h += (h << 10);
+        h ^= (h >> 6);
+    }
+    h += (h << 3);
+    h ^= (h >> 11);
+    h += (h << 15);
+    return h;
+}
 
 void sigint_handler(int sig) {
     write(0, "Caught SIGINT, exiting\n", 23);
@@ -247,8 +264,7 @@ void Node::update_node_data(string reply) {
     temp = reply.substr(pos+1);
     reply.assign(temp);
 
-    cout <<"Successor : " <<std::get<0>(successor) <<":"
-        <<std::get<1>(successor) <<":" <<std::get<2>(successor) << endl;
+    cout <<"Successor : " <<std::get<2>(successor) << endl;
 
     keys.clear();
     cout <<"New keys :" <<endl;
@@ -610,15 +626,15 @@ void Node::reallocate_keys_to_nodes() {
             map_file_to_node[0].push_back(i);
     }
 
-    cout <<"Node file map" <<endl;
-    cout <<"-----------------------" <<endl;
-    for (int i = 0; i < map_file_to_node.size(); i++) {
-        cout <<std::get<2>(nodes[i]) <<" : " <<endl;
-        for (int j = 0; j < map_file_to_node[i].size(); j++)
-            cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
-        cout <<endl;
-    }
-    cout <<"-----------------------" <<endl;
+    // cout <<"Node file map" <<endl;
+    // cout <<"-----------------------" <<endl;
+    // for (int i = 0; i < map_file_to_node.size(); i++) {
+    //     cout <<std::get<2>(nodes[i]) <<" : " <<endl;
+    //     for (int j = 0; j < map_file_to_node[i].size(); j++)
+    //         cout <<std::get<0>(keys_all[map_file_to_node[i][j]]) <<endl;
+    //     cout <<endl;
+    // }
+    // cout <<"-----------------------" <<endl;
 
     // update successor and keys list for each node
     for (int i = 0; i < map_file_to_node.size(); i++) {
@@ -654,6 +670,13 @@ void Node::reallocate_keys_to_nodes() {
             sockobj.send_udp_string(std::get<0>(nodes[i]), std::get<1>(nodes[i]), updated_data);
         }
     }
+
+    cout <<"Successor : " <<std::get<2>(successor) <<endl;
+    cout <<"New keys : " <<node_count <<endl;
+    cout <<"-----------------------------"<<endl;
+    for (int i = 0; i < keys.size(); i++)
+        cout <<std::get<0>(keys[i]) <<endl;
+    cout <<"-----------------------------"<<endl;
 }
 
 void Node::print_stats(bool printRootStats, bool printNodeStats) {
